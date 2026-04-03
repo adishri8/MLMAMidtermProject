@@ -1,0 +1,19 @@
+# Ignore common Python virtual environment folders
+venv/
+.venv/
+env/
+ENV/
+venv_*/
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# VS Code workspace settings
+.vscode/
+
+# macOS
+.DS_Store
