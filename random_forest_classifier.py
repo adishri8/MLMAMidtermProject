@@ -7,7 +7,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report, f1_score
+from sklearn.metrics import accuracy_score, balanced_accuracy_score, classification_report, f1_score
 
 
 def nurse_id_from_path(path: Path) -> str:
@@ -62,6 +62,7 @@ def load_and_process_nurse(
     fixed_window_steps: int | None,
     stride_fraction: float,
     test_ratio: float,
+    calib_ratio: float,
 ) -> dict[str, object] | None:
     df = pd.read_csv(csv_path)
 
@@ -91,14 +92,22 @@ def load_and_process_nurse(
     split_idx = int(len(Xw) * (1.0 - test_ratio))
     split_idx = min(max(split_idx, 1), len(Xw) - 1)
 
+    X_train_full = Xw[:split_idx]
+    y_train_full = yw[:split_idx]
+
+    calib_idx = int(len(X_train_full) * (1.0 - calib_ratio))
+    calib_idx = min(max(calib_idx, 1), len(X_train_full) - 1)
+
     nurse_id = nurse_id_from_path(csv_path)
     return {
         "nurse_id": nurse_id,
         "window_steps": int(window_steps),
         "stride_steps": int(stride_steps),
         "num_windows": int(len(Xw)),
-        "X_train": Xw[:split_idx],
-        "y_train": yw[:split_idx],
+        "X_train": X_train_full[:calib_idx],
+        "y_train": y_train_full[:calib_idx],
+        "X_calib": X_train_full[calib_idx:],
+        "y_calib": y_train_full[calib_idx:],
         "X_test": Xw[split_idx:],
         "y_test": yw[split_idx:],
         "test_end_idx": end_idx[split_idx:],
@@ -106,22 +115,52 @@ def load_and_process_nurse(
     }
 
 
+def positive_class_proba(model: RandomForestClassifier, X: np.ndarray) -> np.ndarray:
+    proba = model.predict_proba(X)
+    classes = list(model.classes_)
+    if 1 in classes:
+        return proba[:, classes.index(1)]
+    # Handle models trained on a single class.
+    only_class = int(classes[0])
+    return np.ones(len(X), dtype=np.float32) if only_class == 1 else np.zeros(len(X), dtype=np.float32)
+
+
+def find_best_threshold(proba: np.ndarray, y_true: np.ndarray) -> tuple[float, float]:
+    if len(np.unique(y_true)) < 2:
+        return 0.5, 0.0
+
+    best_t = 0.5
+    best_score = -1.0
+    for t in np.linspace(0.05, 0.95, 37):
+        y_hat = (proba >= t).astype(np.int8)
+        bal_acc = balanced_accuracy_score(y_true, y_hat)
+        macro_f1 = f1_score(y_true, y_hat, average="macro", zero_division=0)
+        # Combined objective to avoid extreme thresholds that destroy one class.
+        score = 0.6 * macro_f1 + 0.4 * bal_acc
+        if score > best_score:
+            best_score = score
+            best_t = float(t)
+    return best_t, float(best_score)
+
+
 def main() -> None:
     # Configuration
     data_dir = Path("data/Eric")
-    window_seconds = 30.0
+    window_seconds = 30
     window_steps_fixed = None
-    stride_fraction = 0.50
+    stride_fraction = 0.25
     test_ratio = 0.2
-    n_estimators = 300
+    calib_ratio = 0.2
+    n_estimators = 100
     max_depth = None
     random_state = 42
+    decision_threshold = 0.5
     model_out = Path("rf_eric_sliding_window.joblib")
     meta_out = Path("rf_eric_sliding_window_meta.json")
 
     csv_files = sorted(data_dir.glob("processed_nurse_*.csv"))
     if not csv_files:
-        raise FileNotFoundError(f"No processed_nurse_*.csv files found in {args.data_dir}")
+        raise FileNotFoundError(f"No processed_nurse_*.csv files found in {data_dir}")
 
     nurse_data: list[dict[str, object]] = []
     for csv_path in csv_files:
@@ -131,6 +170,7 @@ def main() -> None:
             fixed_window_steps=window_steps_fixed,
             stride_fraction=stride_fraction,
             test_ratio=test_ratio,
+            calib_ratio=calib_ratio,
         )
         if result is not None:
             nurse_data.append(result)
@@ -138,25 +178,61 @@ def main() -> None:
     if not nurse_data:
         raise RuntimeError("No nurse had enough samples for the selected window/stride settings.")
 
-    X_train = np.vstack([d["X_train"] for d in nurse_data])
-    y_train = np.concatenate([d["y_train"] for d in nurse_data])
+    X_calib = np.vstack([d["X_calib"] for d in nurse_data])
+    y_calib = np.concatenate([d["y_calib"] for d in nurse_data])
     X_test = np.vstack([d["X_test"] for d in nurse_data])
     y_test = np.concatenate([d["y_test"] for d in nurse_data])
 
-    clf = RandomForestClassifier(
-        n_estimators=n_estimators,
-        max_depth=max_depth,
-        random_state=random_state,
-        n_jobs=-1,
-        class_weight="balanced_subsample",
-    )
-    clf.fit(X_train, y_train)
+    # Train one Random Forest per nurse, then aggregate all nurse-model outputs.
+    nurse_models: dict[str, RandomForestClassifier] = {}
+    for d in nurse_data:
+        nurse_id = str(d["nurse_id"])
+        model = RandomForestClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            random_state=random_state,
+            n_jobs=-1,
+            class_weight="balanced_subsample",
+        )
+        model.fit(d["X_train"], d["y_train"])
+        nurse_models[nurse_id] = model
 
-    y_pred = clf.predict(X_test)
+    # Weight each nurse model by its balanced accuracy on calibration data.
+    nurse_weights: dict[str, float] = {}
+    raw_weights = []
+    for nurse_id, model in nurse_models.items():
+        calib_proba = positive_class_proba(model, X_calib)
+        calib_pred = (calib_proba >= 0.5).astype(np.int8)
+        if len(np.unique(y_calib)) < 2:
+            w = 1.0
+        else:
+            w = max(0.05, float(balanced_accuracy_score(y_calib, calib_pred)))
+        nurse_weights[nurse_id] = w
+        raw_weights.append(w)
+
+    weight_sum = float(np.sum(raw_weights))
+    if weight_sum == 0.0:
+        normalized_weights = np.ones(len(raw_weights), dtype=np.float32) / len(raw_weights)
+    else:
+        normalized_weights = np.asarray(raw_weights, dtype=np.float32) / weight_sum
+
+    calib_prob_stack = []
+    test_prob_stack = []
+    for model in nurse_models.values():
+        calib_prob_stack.append(positive_class_proba(model, X_calib))
+        test_prob_stack.append(positive_class_proba(model, X_test))
+
+    calib_ensemble_proba = np.average(np.vstack(calib_prob_stack), axis=0, weights=normalized_weights)
+    decision_threshold, calib_best_bal_acc = find_best_threshold(calib_ensemble_proba, y_calib)
+
+    ensemble_proba = np.average(np.vstack(test_prob_stack), axis=0, weights=normalized_weights)
+    y_pred = (ensemble_proba >= decision_threshold).astype(np.int8)
+
     global_accuracy = accuracy_score(y_test, y_pred)
     global_f1 = f1_score(y_test, y_pred, average="binary", zero_division=0)
 
     print("=== Global Test Metrics ===")
+    print(f"Calibrated threshold: {decision_threshold:.2f}")
     print(f"Accuracy: {global_accuracy:.4f}")
     print(f"F1 (binary): {global_f1:.4f}")
     print("Classification report:")
@@ -187,7 +263,17 @@ def main() -> None:
         )
 
     model_out.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(clf, model_out)
+    joblib.dump(
+        {
+            "aggregation": "mean_probability",
+            "decision_threshold": decision_threshold,
+            "nurse_weights": nurse_weights,
+            "nurse_models": nurse_models,
+            "feature_order": ["acc_mag", "EDA", "HR", "TEMP"],
+            "window_features": ["mean", "std", "min", "max", "last", "slope"],
+        },
+        model_out,
+    )
 
     metadata = {
         "data_dir": str(data_dir),
@@ -195,10 +281,17 @@ def main() -> None:
         "window_steps_fixed": window_steps_fixed,
         "stride_fraction": stride_fraction,
         "test_ratio": test_ratio,
+        "calib_ratio": calib_ratio,
         "n_estimators": n_estimators,
         "max_depth": max_depth,
         "random_state": random_state,
-        "num_train_windows": int(len(X_train)),
+        "ensemble_type": "one_random_forest_per_nurse",
+        "aggregation": "weighted_mean_probability",
+        "decision_threshold": decision_threshold,
+        "calib_balanced_accuracy": calib_best_bal_acc,
+        "nurse_weights": nurse_weights,
+        "num_train_windows": int(sum(len(d["X_train"]) for d in nurse_data)),
+        "num_calib_windows": int(len(X_calib)),
         "num_test_windows": int(len(X_test)),
         "global_accuracy": float(global_accuracy),
         "global_f1_binary": float(global_f1),
