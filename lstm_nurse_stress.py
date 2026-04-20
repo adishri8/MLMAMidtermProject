@@ -97,6 +97,12 @@ def load_nurse(path: str) -> pd.DataFrame:
 #     return train_df, val_df, test_df
 
 def day_split(df, train_frac=TRAIN_FRAC, val_frac=VAL_FRAC):
+    """
+    New day_split logic: inst of always taking the last day as test,
+    score every day by how close its stress ratio is to 50%. 
+    Picks the most balanced day as test, guaranteeing both classes present. 
+    Picks the next most balanced day as val.
+    """
     days = sorted(df["date"].unique())
     # pick test day as the one with most balanced label ratio
     balance = df.groupby("date")["label_binary"].mean()
@@ -347,28 +353,48 @@ def main():
             "Run the preprocessing script first."
         )
     print(f"Found {len(csv_files)} nurse files.\n")
-
-    DISCARD_NURSES = {"CE", "EG"} # no label '0' samples -> binary classification invalid 
-
+ 
+    DISCARD_NURSES = {"CE", "EG"}   # no label-0 samples -> binary classification invalid
+ 
+    # ── Dataset overview ──────────────────────────────────────────────────────
+    print(f"{'NURSE':<12} {'ROWS':>10} {'DAYS':>6} {'NO-STRESS':>12} {'STRESS':>10} {'STRESS%':>9}")
+    print("-" * 65)
+    for p in csv_files:
+        nid = os.path.basename(p).replace("processed_nurse_", "").replace(".csv", "")
+        if nid in DISCARD_NURSES:
+            print(f"{nid:<12} {'(skipped)':>10}")
+            continue
+        _df = pd.read_csv(p, usecols=["datetime", "label"], parse_dates=["datetime"])
+        _df["label_binary"] = (_df["label"] > 0).astype(int)
+        _df["date"] = _df["datetime"].dt.date
+        n_rows  = len(_df)
+        n_days  = _df["date"].nunique()
+        vc      = _df["label_binary"].value_counts().to_dict()
+        n0, n1  = vc.get(0, 0), vc.get(1, 0)
+        pct     = 100 * n1 / n_rows if n_rows else 0
+        print(f"{nid:<12} {n_rows:>10,} {n_days:>6} {n0:>12,} {n1:>10,} {pct:>8.1f}%")
+    print("-" * 65)
+    print()
+ 
     all_results = []
-
+ 
     for path in csv_files:
         nurse_id = os.path.basename(path).replace("processed_nurse_", "").replace(".csv", "")
-
+ 
         if nurse_id in DISCARD_NURSES:
-            print(f" [Nurse {nurse_id}] Skipped (no no-stress label).")
+            print(f"  [Nurse {nurse_id}] Skipped (no no-stress label).")
             continue
-
+ 
         print(f"\n{'='*60}")
         print(f"  Processing Nurse {nurse_id}")
         print(f"{'='*60}")
-
+ 
         df = load_nurse(path)
-
+ 
         # Label distribution
         vc = df["label_binary"].value_counts().to_dict()
         print(f"  Rows: {len(df):,}  |  label dist: {vc}")
-
+ 
         # Day-based split
         train_df, val_df, test_df = day_split(df)
         n_days = df["date"].nunique()
@@ -376,41 +402,40 @@ def main():
               f"train={train_df['date'].nunique()}, "
               f"val={val_df['date'].nunique()}, "
               f"test={test_df['date'].nunique()}")
-
+ 
         if len(train_df) == 0:
             print("  Skipping — insufficient data.")
             continue
-
+ 
         # Per-nurse normalisation
         train_df, val_df, test_df, _ = normalize_nurse(train_df, val_df, test_df)
-
+ 
         # Train LSTM
         result = train_nurse(nurse_id, train_df, val_df, test_df)
         if result:
             all_results.append(result)
-
+ 
     # ── Aggregate summary ─────────────────────────────────────────────────────
     print(f"\n{'='*60}")
     print("  AGGREGATE RESULTS ACROSS NURSES")
     print(f"{'='*60}")
-
+ 
     results_df = pd.DataFrame([r for r in all_results if "accuracy" in r])
     print(results_df[["nurse_id", "accuracy", "auc",
                        "f1_macro", "f1_stress"]].to_string(index=False))
-
+ 
     print("\n  Mean ± Std:")
     for col in ["accuracy", "auc", "f1_macro", "f1_stress"]:
         m, s = results_df[col].mean(), results_df[col].std()
         print(f"    {col:<20}: {m:.3f} ± {s:.3f}")
-
+ 
     out_csv = os.path.join(RESULTS_DIR, "nurse_results_summary.csv")
     results_df.to_csv(out_csv, index=False)
     print(f"\n  Results saved to: {out_csv}")
-
-
+ 
+ 
 if __name__ == "__main__":
     main()
-
 
 # To run the model: 
 # pip install torch scikit-learn pandas numpy
