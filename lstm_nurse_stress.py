@@ -345,7 +345,7 @@ def main():
         )
     print(f"Found {len(csv_files)} nurse files.\n")
 
-    DISCARD_NURSES = {"CE", "EG"}   # no label-0 samples -> binary classification invalid
+    DISCARD_NURSES = {"CE", "EG", "6D"}   # no label-0 samples -> binary classification invalid; 6D has only 1 day so skip 
 
     # ── Dataset overview ──────────────────────────────────────────────────────
     print(f"{'NURSE':<12} {'ROWS':>10} {'DAYS':>6} {'NO-STRESS':>12} {'STRESS':>10} {'STRESS%':>9}")
