@@ -78,23 +78,34 @@ def load_nurse(path: str) -> pd.DataFrame:
     return df
 
 
-def day_split(df: pd.DataFrame, train_frac: float = TRAIN_FRAC,
-              val_frac: float = VAL_FRAC):
-    """Split days chronologically into train / val / test sets."""
+# def day_split(df: pd.DataFrame, train_frac: float = TRAIN_FRAC,
+#               val_frac: float = VAL_FRAC):
+#     """Split days chronologically into train / val / test sets."""
+#     days = sorted(df["date"].unique())
+#     n = len(days)
+#     n_train = max(1, int(n * train_frac))
+#     n_val   = max(1, int(n * val_frac))
+
+#     train_days = days[:n_train]
+#     val_days   = days[n_train : n_train + n_val]
+#     test_days  = days[n_train + n_val:]
+
+#     train_df = df[df["date"].isin(train_days)]
+#     val_df   = df[df["date"].isin(val_days)]
+#     test_df  = df[df["date"].isin(test_days)]
+
+#     return train_df, val_df, test_df
+
+def day_split(df, train_frac=TRAIN_FRAC, val_frac=VAL_FRAC):
     days = sorted(df["date"].unique())
-    n = len(days)
-    n_train = max(1, int(n * train_frac))
-    n_val   = max(1, int(n * val_frac))
-
-    train_days = days[:n_train]
-    val_days   = days[n_train : n_train + n_val]
-    test_days  = days[n_train + n_val:]
-
-    train_df = df[df["date"].isin(train_days)]
-    val_df   = df[df["date"].isin(val_days)]
-    test_df  = df[df["date"].isin(test_days)]
-
-    return train_df, val_df, test_df
+    # pick test day as the one with most balanced label ratio
+    balance = df.groupby("date")["label_binary"].mean()
+    test_day = [(abs(balance[d] - 0.5), d) for d in days]
+    test_day = sorted(test_day)[0][1]   # closest to 0.5
+    remaining = [d for d in days if d != test_day]
+    n_val = max(1, int(len(remaining) * val_frac / (1 - val_frac)))
+    val_days   = remaining[-n_val:]
+    train_days = remaining[:-n_val]
 
 
 def normalize_nurse(train_df, val_df, test_df, features=FEATURES):
