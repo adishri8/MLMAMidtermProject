@@ -38,12 +38,12 @@ HIDDEN_SIZE   = 128
 NUM_LAYERS    = 2
 DROPOUT       = 0.3
 LR            = 1e-3
-EPOCHS        = 20
+EPOCHS        = 30
 PATIENCE      = 5          # early-stopping patience
 TRAIN_FRAC    = 0.7        # fraction of days used for training
 VAL_FRAC      = 0.15       # remainder goes to test
 DATA_DIR      = "data/Aditya"
-RESULTS_DIR   = "lstm_results"
+RESULTS_DIR   = "results"
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
 FEATURES = ["acc_mag", "EDA", "HR", "TEMP", "time_progress"]
@@ -68,7 +68,6 @@ def load_nurse(path: str) -> pd.DataFrame:
     df["date"] = df["datetime"].dt.date
 
     # ── Add time_progress: fraction of the day elapsed (0 → 1) ───────────────
-    # Giving the model a 0->1 context of hpw far through the shift we are 
     df = df.sort_values("datetime").reset_index(drop=True)
     df["time_progress"] = (
         df.groupby("date")["time"]
@@ -78,40 +77,32 @@ def load_nurse(path: str) -> pd.DataFrame:
     return df
 
 
-# def day_split(df: pd.DataFrame, train_frac: float = TRAIN_FRAC,
-#               val_frac: float = VAL_FRAC):
-#     """Split days chronologically into train / val / test sets."""
-#     days = sorted(df["date"].unique())
-#     n = len(days)
-#     n_train = max(1, int(n * train_frac))
-#     n_val   = max(1, int(n * val_frac))
+def day_split(df: pd.DataFrame, train_frac: float = TRAIN_FRAC,
+              val_frac: float = VAL_FRAC):
+    """Split days into train / val / test.
 
-#     train_days = days[:n_train]
-#     val_days   = days[n_train : n_train + n_val]
-#     test_days  = days[n_train + n_val:]
-
-#     train_df = df[df["date"].isin(train_days)]
-#     val_df   = df[df["date"].isin(val_days)]
-#     test_df  = df[df["date"].isin(test_days)]
-
-#     return train_df, val_df, test_df
-
-def day_split(df, train_frac=TRAIN_FRAC, val_frac=VAL_FRAC):
-    """
-    New day_split logic: inst of always taking the last day as test,
-    score every day by how close its stress ratio is to 50%. 
-    Picks the most balanced day as test, guaranteeing both classes present. 
-    Picks the next most balanced day as val.
+    Test day is chosen as the day whose stress ratio is closest to 0.5
+    (most balanced), so the test set always contains both classes.
+    Val day is the most balanced among the remaining days.
+    Train gets everything else.
     """
     days = sorted(df["date"].unique())
-    # pick test day as the one with most balanced label ratio
+
+    # Balance score: closeness to 0.5 stress ratio (lower = more balanced)
     balance = df.groupby("date")["label_binary"].mean()
-    test_day = [(abs(balance[d] - 0.5), d) for d in days]
-    test_day = sorted(test_day)[0][1]   # closest to 0.5
-    remaining = [d for d in days if d != test_day]
-    n_val = max(1, int(len(remaining) * val_frac / (1 - val_frac)))
-    val_days   = remaining[-n_val:]
-    train_days = remaining[:-n_val]
+    scored  = sorted(days, key=lambda d: abs(balance[d] - 0.5))
+
+    test_day = scored[0]                          # most balanced day → test
+    remaining = [d for d in scored if d != test_day]
+
+    val_day   = remaining[0] if remaining else None   # next most balanced → val
+    train_days = [d for d in days if d not in {test_day, val_day}]
+
+    train_df = df[df["date"].isin(train_days)]
+    val_df   = df[df["date"].isin([val_day])]   if val_day   else df.iloc[:0]
+    test_df  = df[df["date"].isin([test_day])]
+
+    return train_df, val_df, test_df
 
 
 def normalize_nurse(train_df, val_df, test_df, features=FEATURES):
@@ -353,9 +344,9 @@ def main():
             "Run the preprocessing script first."
         )
     print(f"Found {len(csv_files)} nurse files.\n")
- 
+
     DISCARD_NURSES = {"CE", "EG"}   # no label-0 samples -> binary classification invalid
- 
+
     # ── Dataset overview ──────────────────────────────────────────────────────
     print(f"{'NURSE':<12} {'ROWS':>10} {'DAYS':>6} {'NO-STRESS':>12} {'STRESS':>10} {'STRESS%':>9}")
     print("-" * 65)
@@ -375,26 +366,26 @@ def main():
         print(f"{nid:<12} {n_rows:>10,} {n_days:>6} {n0:>12,} {n1:>10,} {pct:>8.1f}%")
     print("-" * 65)
     print()
- 
+
     all_results = []
- 
+
     for path in csv_files:
         nurse_id = os.path.basename(path).replace("processed_nurse_", "").replace(".csv", "")
- 
+
         if nurse_id in DISCARD_NURSES:
             print(f"  [Nurse {nurse_id}] Skipped (no no-stress label).")
             continue
- 
+
         print(f"\n{'='*60}")
         print(f"  Processing Nurse {nurse_id}")
         print(f"{'='*60}")
- 
+
         df = load_nurse(path)
- 
+
         # Label distribution
         vc = df["label_binary"].value_counts().to_dict()
         print(f"  Rows: {len(df):,}  |  label dist: {vc}")
- 
+
         # Day-based split
         train_df, val_df, test_df = day_split(df)
         n_days = df["date"].nunique()
@@ -402,41 +393,37 @@ def main():
               f"train={train_df['date'].nunique()}, "
               f"val={val_df['date'].nunique()}, "
               f"test={test_df['date'].nunique()}")
- 
+
         if len(train_df) == 0:
             print("  Skipping — insufficient data.")
             continue
- 
+
         # Per-nurse normalisation
         train_df, val_df, test_df, _ = normalize_nurse(train_df, val_df, test_df)
- 
+
         # Train LSTM
         result = train_nurse(nurse_id, train_df, val_df, test_df)
         if result:
             all_results.append(result)
- 
+
     # ── Aggregate summary ─────────────────────────────────────────────────────
     print(f"\n{'='*60}")
     print("  AGGREGATE RESULTS ACROSS NURSES")
     print(f"{'='*60}")
- 
+
     results_df = pd.DataFrame([r for r in all_results if "accuracy" in r])
     print(results_df[["nurse_id", "accuracy", "auc",
                        "f1_macro", "f1_stress"]].to_string(index=False))
- 
+
     print("\n  Mean ± Std:")
     for col in ["accuracy", "auc", "f1_macro", "f1_stress"]:
         m, s = results_df[col].mean(), results_df[col].std()
         print(f"    {col:<20}: {m:.3f} ± {s:.3f}")
- 
+
     out_csv = os.path.join(RESULTS_DIR, "nurse_results_summary.csv")
     results_df.to_csv(out_csv, index=False)
     print(f"\n  Results saved to: {out_csv}")
- 
- 
+
+
 if __name__ == "__main__":
     main()
-
-# To run the model: 
-# pip install torch scikit-learn pandas numpy
-# python lstm_nurse_stress.py
