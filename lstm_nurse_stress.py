@@ -350,11 +350,13 @@ def main():
     # ── Dataset overview ──────────────────────────────────────────────────────
     print(f"{'NURSE':<12} {'ROWS':>10} {'DAYS':>6} {'NO-STRESS':>12} {'STRESS':>10} {'STRESS%':>9}")
     print("-" * 65)
+    n_nurses = 0 
     for p in csv_files:
         nid = os.path.basename(p).replace("processed_nurse_", "").replace(".csv", "")
         if nid in DISCARD_NURSES:
             print(f"{nid:<12} {'(skipped)':>10}")
             continue
+        n_nurses += 1
         _df = pd.read_csv(p, usecols=["datetime", "label"], parse_dates=["datetime"])
         _df["label_binary"] = (_df["label"] > 0).astype(int)
         _df["date"] = _df["datetime"].dt.date
@@ -366,6 +368,8 @@ def main():
         print(f"{nid:<12} {n_rows:>10,} {n_days:>6} {n0:>12,} {n1:>10,} {pct:>8.1f}%")
     print("-" * 65)
     print()
+
+    print(f"Found {n_nurses} valid nurse files to use.\n")
 
     all_results = []
 
