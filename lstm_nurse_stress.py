@@ -38,7 +38,7 @@ HIDDEN_SIZE   = 128
 NUM_LAYERS    = 2
 DROPOUT       = 0.3
 LR            = 1e-3
-EPOCHS        = 30
+EPOCHS        = 5
 PATIENCE      = 5          # early-stopping patience
 TRAIN_FRAC    = 0.7        # fraction of days used for training
 VAL_FRAC      = 0.15       # remainder goes to test
@@ -153,10 +153,24 @@ class SequenceDataset(Dataset):
 
 
 def make_loader(df, seq_len=SEQ_LEN, stride=STRIDE,
-                batch_size=BATCH_SIZE, shuffle=True):
+                batch_size=BATCH_SIZE, shuffle=True, oversample=False):
     ds = SequenceDataset(df, seq_len, stride)
     if len(ds) == 0:
         return None
+
+    if oversample and shuffle:
+        # WeightedRandomSampler: give each window a weight inverse to its class freq
+        labels  = ds.y
+        counts  = np.bincount(labels, minlength=2).astype(float)
+        counts  = np.where(counts == 0, 1, counts)          # avoid div-by-zero
+        w_per_class = 1.0 / counts
+        weights = torch.tensor(w_per_class[labels], dtype=torch.float32)
+        sampler = torch.utils.data.WeightedRandomSampler(
+            weights, num_samples=len(weights), replacement=True
+        )
+        return DataLoader(ds, batch_size=batch_size,
+                          sampler=sampler, drop_last=False)
+
     return DataLoader(ds, batch_size=batch_size,
                       shuffle=shuffle, drop_last=False)
 
@@ -190,14 +204,18 @@ class StressLSTM(nn.Module):
 # 4.  TRAIN / EVAL HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
-def compute_class_weights(df: pd.DataFrame):
-    """Return inverse-frequency weights as a tensor for BCEWithLogitsLoss."""
-    counts = df[TARGET].value_counts().sort_index()
-    total  = counts.sum()
-    weights = torch.tensor(
-        [total / (2 * counts.get(i, 1)) for i in range(2)],
-        dtype=torch.float32
-    ).to(DEVICE)
+def compute_class_weights(df: pd.DataFrame, minority_boost: float = 2.0):
+    """Inverse-frequency class weights with an extra boost for the minority class.
+
+    minority_boost: multiplier applied on top of inverse-freq for class 0 (no-stress).
+    Increase if the model still ignores no-stress after oversampling.
+    """
+    counts  = df[TARGET].value_counts().sort_index()
+    total   = counts.sum()
+    w = [total / (2 * counts.get(i, 1)) for i in range(2)]
+    w[0] *= minority_boost      # extra penalty for missing no-stress
+    weights = torch.tensor(w, dtype=torch.float32).to(DEVICE)
+    print(f"  Class weights → no-stress: {w[0]:.2f}  stress: {w[1]:.2f}")
     return weights
 
 
@@ -242,9 +260,9 @@ def eval_epoch(model, loader, criterion):
 def train_nurse(nurse_id, train_df, val_df, test_df):
     """Full training loop for one nurse. Returns per-nurse metrics dict."""
 
-    train_loader = make_loader(train_df, shuffle=True)
-    val_loader   = make_loader(val_df,   shuffle=False)
-    test_loader  = make_loader(test_df,  shuffle=False)
+    train_loader = make_loader(train_df, shuffle=True,  oversample=True)
+    val_loader   = make_loader(val_df,   shuffle=False, oversample=False)
+    test_loader  = make_loader(test_df,  shuffle=False, oversample=False)
 
     if train_loader is None:
         print(f"  [Nurse {nurse_id}] Not enough train data — skipping.")
@@ -345,18 +363,16 @@ def main():
         )
     print(f"Found {len(csv_files)} nurse files.\n")
 
-    DISCARD_NURSES = {"CE", "EG", "6D"}   # no label-0 samples -> binary classification invalid; 6D has only 1 day so skip 
+    DISCARD_NURSES = {"CE", "EG", "6D"}   # CE/EG: no label-0 samples; 6D: only 1 day
 
     # ── Dataset overview ──────────────────────────────────────────────────────
     print(f"{'NURSE':<12} {'ROWS':>10} {'DAYS':>6} {'NO-STRESS':>12} {'STRESS':>10} {'STRESS%':>9}")
     print("-" * 65)
-    n_nurses = 0 
     for p in csv_files:
         nid = os.path.basename(p).replace("processed_nurse_", "").replace(".csv", "")
         if nid in DISCARD_NURSES:
             print(f"{nid:<12} {'(skipped)':>10}")
             continue
-        n_nurses += 1
         _df = pd.read_csv(p, usecols=["datetime", "label"], parse_dates=["datetime"])
         _df["label_binary"] = (_df["label"] > 0).astype(int)
         _df["date"] = _df["datetime"].dt.date
@@ -368,8 +384,6 @@ def main():
         print(f"{nid:<12} {n_rows:>10,} {n_days:>6} {n0:>12,} {n1:>10,} {pct:>8.1f}%")
     print("-" * 65)
     print()
-
-    print(f"Found {n_nurses} valid nurse files to use.\n")
 
     all_results = []
 
