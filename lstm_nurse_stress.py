@@ -20,8 +20,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
-    classification_report, roc_auc_score,
-    confusion_matrix, f1_score
+    classification_report, average_precision_score,
+    confusion_matrix, f1_score, precision_recall_curve
 )
 from sklearn.model_selection import GroupShuffleSplit
 
@@ -38,7 +38,7 @@ HIDDEN_SIZE   = 128
 NUM_LAYERS    = 2
 DROPOUT       = 0.3
 LR            = 1e-3
-EPOCHS        = 5
+EPOCHS        = 30
 PATIENCE      = 5          # early-stopping patience
 TRAIN_FRAC    = 0.7        # fraction of days used for training
 VAL_FRAC      = 0.15       # remainder goes to test
@@ -204,16 +204,19 @@ class StressLSTM(nn.Module):
 # 4.  TRAIN / EVAL HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
-def compute_class_weights(df: pd.DataFrame, minority_boost: float = 2.0):
-    """Inverse-frequency class weights with an extra boost for the minority class.
+def compute_class_weights(df: pd.DataFrame, minority_boost: float = 2.0,
+                          max_weight: float = 20.0):
+    """Inverse-frequency class weights, capped to avoid numerical explosion.
 
-    minority_boost: multiplier applied on top of inverse-freq for class 0 (no-stress).
-    Increase if the model still ignores no-stress after oversampling.
+    minority_boost : extra multiplier for no-stress on top of inverse-freq.
+    max_weight     : hard ceiling — prevents absurd values (e.g. 165k) when
+                     the minority class is near-absent in the train split.
     """
     counts  = df[TARGET].value_counts().sort_index()
     total   = counts.sum()
     w = [total / (2 * counts.get(i, 1)) for i in range(2)]
-    w[0] *= minority_boost      # extra penalty for missing no-stress
+    w[0] = min(w[0] * minority_boost, max_weight)
+    w[1] = min(w[1], max_weight)
     weights = torch.tensor(w, dtype=torch.float32).to(DEVICE)
     print(f"  Class weights → no-stress: {w[0]:.2f}  stress: {w[1]:.2f}")
     return weights
@@ -257,8 +260,71 @@ def eval_epoch(model, loader, criterion):
             np.array(all_preds), np.array(all_labels), np.array(all_probs))
 
 
+@torch.no_grad()
+def permutation_importance(model, test_loader, criterion,
+                           n_repeats: int = 10) -> dict:
+    """Measure feature importance by permuting each feature and recording
+    the drop in macro-F1 on the test set. Larger drop = more important feature.
+    """
+    model.eval()
+
+    def get_f1(loader):
+        all_preds, all_labels = [], []
+        for X, y in loader:
+            X, y = X.to(DEVICE), y.to(DEVICE)
+            preds = model(X).argmax(1)
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(y.cpu().numpy())
+        return f1_score(all_labels, all_preds, average="macro", zero_division=0)
+
+    # Collect all test tensors once to avoid re-iterating the loader
+    all_X = torch.cat([X for X, _ in test_loader], dim=0)   # (N, seq_len, n_feat)
+    all_y = torch.cat([y for _, y in test_loader], dim=0)
+
+    base_ds     = torch.utils.data.TensorDataset(all_X, all_y)
+    base_loader = DataLoader(base_ds, batch_size=BATCH_SIZE, shuffle=False)
+    base_f1     = get_f1(base_loader)
+
+    importance = {}
+    for fi, feat_name in enumerate(FEATURES):
+        drops = []
+        for _ in range(n_repeats):
+            X_perm = all_X.clone()
+            # shuffle this feature across all windows & timesteps
+            idx = torch.randperm(X_perm.shape[0])
+            X_perm[:, :, fi] = X_perm[idx, :, fi]
+            perm_ds     = torch.utils.data.TensorDataset(X_perm, all_y)
+            perm_loader = DataLoader(perm_ds, batch_size=BATCH_SIZE, shuffle=False)
+            drops.append(base_f1 - get_f1(perm_loader))
+        importance[feat_name] = float(np.mean(drops))
+
+    return importance
+
+
+def print_split_balance(nurse_id, train_df, val_df, test_df):
+    """Print per-day and per-split label balance so data quality is visible."""
+    print(f"  {'Split':<8} {'Days':<6} {'No-stress':>10} {'Stress':>8} {'Stress%':>8}  {'Warning'}")
+    print(f"  {'-'*60}")
+    for name, df in [("train", train_df), ("val", val_df), ("test", test_df)]:
+        if len(df) == 0:
+            print(f"  {name:<8} {'—':>6}")
+            continue
+        vc   = df[TARGET].value_counts().to_dict()
+        n0, n1 = vc.get(0, 0), vc.get(1, 0)
+        pct  = 100 * n1 / (n0 + n1) if (n0 + n1) > 0 else 0
+        warn = ""
+        if n0 == 0:
+            warn = "⚠️  NO no-stress samples!"
+        elif pct > 95:
+            warn = "⚠️  <5% no-stress — very imbalanced"
+        print(f"  {name:<8} {df['date'].nunique():<6} {n0:>10,} {n1:>8,} {pct:>7.1f}%  {warn}")
+    print()
+
+
 def train_nurse(nurse_id, train_df, val_df, test_df):
     """Full training loop for one nurse. Returns per-nurse metrics dict."""
+
+    print_split_balance(nurse_id, train_df, val_df, test_df)
 
     train_loader = make_loader(train_df, shuffle=True,  oversample=True)
     val_loader   = make_loader(val_df,   shuffle=False, oversample=False)
@@ -324,29 +390,48 @@ def train_nurse(nurse_id, train_df, val_df, test_df):
     report = classification_report(test_y, test_preds,
                                    target_names=["no-stress", "stress"],
                                    output_dict=True, zero_division=0)
+
+    # ── PR-AUC (average precision) — better than ROC-AUC for imbalanced data ──
     try:
-        auc = roc_auc_score(test_y, test_probs)
+        pr_auc = average_precision_score(test_y, test_probs)
     except ValueError:
-        auc = float("nan")
+        pr_auc = float("nan")
+
+    # ── Permutation feature importance ────────────────────────────────────────
+    perm_importance = permutation_importance(
+        model, test_loader, criterion, n_repeats=10
+    )
 
     cm = confusion_matrix(test_y, test_preds)
     print(f"\n  === Nurse {nurse_id} Test Results ===")
-    print(f"  Acc={test_acc:.3f}  AUC={auc:.3f}")
+    print(f"  Acc={test_acc:.3f}  PR-AUC={pr_auc:.3f}")
     print(f"  Confusion matrix:\n{cm}")
     print(classification_report(test_y, test_preds,
                                  target_names=["no-stress", "stress"],
                                  zero_division=0))
+    print("  Permutation Feature Importance (mean F1 drop):")
+    for feat, score in sorted(perm_importance.items(), key=lambda x: -x[1]):
+        print(f"    {feat:<15}: {score:+.4f}")
 
     return {
-        "nurse_id":  nurse_id,
-        "accuracy":  test_acc,
-        "auc":       auc,
-        "f1_macro":  report["macro avg"]["f1-score"],
-        "f1_stress": report["stress"]["f1-score"],
-        "precision_stress": report["stress"]["precision"],
-        "recall_stress":    report["stress"]["recall"],
-        "n_test_windows":   len(test_preds),
-        "model_path":       save_path,
+        "nurse_id":           nurse_id,
+        "accuracy":           test_acc,
+        "pr_auc":             pr_auc,
+        # macro averages
+        "f1_macro":           report["macro avg"]["f1-score"],
+        "precision_macro":    report["macro avg"]["precision"],
+        "recall_macro":       report["macro avg"]["recall"],
+        # no-stress class
+        "f1_nostress":        report["no-stress"]["f1-score"],
+        "precision_nostress": report["no-stress"]["precision"],
+        "recall_nostress":    report["no-stress"]["recall"],
+        # stress class
+        "f1_stress":          report["stress"]["f1-score"],
+        "precision_stress":   report["stress"]["precision"],
+        "recall_stress":      report["stress"]["recall"],
+        "n_test_windows":     len(test_preds),
+        "model_path":         save_path,
+        "perm_importance":    perm_importance,
     }
 
 
@@ -430,17 +515,49 @@ def main():
     print(f"{'='*60}")
 
     results_df = pd.DataFrame([r for r in all_results if "accuracy" in r])
-    print(results_df[["nurse_id", "accuracy", "auc",
-                       "f1_macro", "f1_stress"]].to_string(index=False))
 
+    # ── Per-nurse table ───────────────────────────────────────────────────────
+    display_cols = [
+        "nurse_id", "accuracy", "pr_auc",
+        "precision_nostress", "recall_nostress", "f1_nostress",
+        "precision_stress",   "recall_stress",   "f1_stress",
+        "precision_macro",    "recall_macro",     "f1_macro",
+    ]
+    print(results_df[display_cols].to_string(index=False))
+
+    # ── Mean ± Std ────────────────────────────────────────────────────────────
     print("\n  Mean ± Std:")
-    for col in ["accuracy", "auc", "f1_macro", "f1_stress"]:
+    summary_cols = [
+        "accuracy", "pr_auc",
+        "precision_nostress", "recall_nostress", "f1_nostress",
+        "precision_stress",   "recall_stress",   "f1_stress",
+        "precision_macro",    "recall_macro",     "f1_macro",
+    ]
+    for col in summary_cols:
         m, s = results_df[col].mean(), results_df[col].std()
-        print(f"    {col:<20}: {m:.3f} ± {s:.3f}")
+        print(f"    {col:<25}: {m:.3f} ± {s:.3f}")
 
+    # ── Aggregate permutation importance across nurses ────────────────────────
+    print("\n  Aggregate Permutation Feature Importance (mean F1 drop across nurses):")
+    all_imp = pd.DataFrame([r["perm_importance"] for r in all_results
+                            if "perm_importance" in r])
+    imp_mean = all_imp.mean().sort_values(ascending=False)
+    imp_std  = all_imp.std()
+    for feat in imp_mean.index:
+        print(f"    {feat:<15}: {imp_mean[feat]:+.4f} ± {imp_std[feat]:.4f}")
+
+    # ── Save CSVs ─────────────────────────────────────────────────────────────
     out_csv = os.path.join(RESULTS_DIR, "nurse_results_summary.csv")
-    results_df.to_csv(out_csv, index=False)
-    print(f"\n  Results saved to: {out_csv}")
+    results_df.drop(columns=["perm_importance", "model_path"],
+                    errors="ignore").to_csv(out_csv, index=False)
+
+    imp_csv = os.path.join(RESULTS_DIR, "feature_importance.csv")
+    imp_df  = all_imp.copy()
+    imp_df.index = [r["nurse_id"] for r in all_results if "perm_importance" in r]
+    imp_df.to_csv(imp_csv)
+
+    print(f"\n  Results saved to : {out_csv}")
+    print(f"  Feature importance: {imp_csv}")
 
 
 if __name__ == "__main__":
