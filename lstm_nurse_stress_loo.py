@@ -42,6 +42,9 @@ EPOCHS        = 30
 PATIENCE      = 5          # early-stopping patience
 TRAIN_FRAC    = 0.7        # fraction of days used for training
 VAL_FRAC      = 0.15       # remainder goes to test
+# Acceptable stress ratio per day: days outside [MIN, MAX] are dropped
+MIN_STRESS_RATIO = 0.20    # at least 20% stress
+MAX_STRESS_RATIO = 0.80    # at most 80% stress (i.e. at least 20% no-stress)
 DATA_DIR      = "data/Aditya"
 RESULTS_DIR   = "results"
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -77,49 +80,47 @@ def load_nurse(path: str) -> pd.DataFrame:
     return df
 
 
-def day_split(df: pd.DataFrame, train_frac: float = TRAIN_FRAC,
-              val_frac: float = VAL_FRAC):
-    """Split days into train / val / test.
+def filter_balanced_days(df: pd.DataFrame,
+                         min_ratio: float = MIN_STRESS_RATIO,
+                         max_ratio: float = MAX_STRESS_RATIO) -> pd.DataFrame:
+    """Keep only days whose stress ratio falls within [min_ratio, max_ratio].
 
-    Test day is chosen as the day whose stress ratio is closest to 0.5
-    (most balanced), so the test set always contains both classes.
-    Val day is the most balanced among the remaining days.
-    Train gets everything else.
+    Returns the filtered DataFrame and prints a per-day breakdown.
     """
-    days = sorted(df["date"].unique())
+    balance  = df.groupby("date")["label_binary"].mean()
+    all_days = sorted(df["date"].unique())
 
-    # Balance score: closeness to 0.5 stress ratio (lower = more balanced)
-    balance = df.groupby("date")["label_binary"].mean()
-    scored  = sorted(days, key=lambda d: abs(balance[d] - 0.5))
+    kept, dropped = [], []
+    print(f"  {'DATE':<12} {'STRESS%':>8}  STATUS")
+    print(f"  {'-'*35}")
+    for d in all_days:
+        ratio = balance[d]
+        pct   = ratio * 100
+        if min_ratio <= ratio <= max_ratio:
+            kept.append(d)
+            print(f"  {str(d):<12} {pct:>7.1f}%  ✓ kept")
+        else:
+            dropped.append(d)
+            reason = "too little stress" if ratio < min_ratio else "too much stress"
+            print(f"  {str(d):<12} {pct:>7.1f}%  ✗ dropped ({reason})")
+    print(f"  → {len(kept)} / {len(all_days)} days kept "
+          f"(ratio window {min_ratio*100:.0f}–{max_ratio*100:.0f}%)")
 
-    test_day = scored[0]                          # most balanced day → test
-    remaining = [d for d in scored if d != test_day]
-
-    val_day   = remaining[0] if remaining else None   # next most balanced → val
-    train_days = [d for d in days if d not in {test_day, val_day}]
-
-    train_df = df[df["date"].isin(train_days)]
-    val_df   = df[df["date"].isin([val_day])]   if val_day   else df.iloc[:0]
-    test_df  = df[df["date"].isin([test_day])]
-
-    return train_df, val_df, test_df
+    return df[df["date"].isin(kept)].copy()
 
 
-def normalize_nurse(train_df, val_df, test_df, features=FEATURES):
-    """Fit a StandardScaler on train split; transform all three splits."""
-    scaler = StandardScaler()
-    # Exclude time_progress from scaler (already in [0,1])
+def normalize_nurse(train_df, test_df, features=FEATURES):
+    """Fit a StandardScaler on train split; transform train + test."""
+    scaler     = StandardScaler()
     scale_cols = [f for f in features if f != "time_progress"]
 
     train_df = train_df.copy()
-    val_df   = val_df.copy()
     test_df  = test_df.copy()
 
     train_df[scale_cols] = scaler.fit_transform(train_df[scale_cols])
-    val_df[scale_cols]   = scaler.transform(val_df[scale_cols])
     test_df[scale_cols]  = scaler.transform(test_df[scale_cols])
 
-    return train_df, val_df, test_df, scaler
+    return train_df, test_df, scaler
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -219,6 +220,7 @@ def compute_class_weights(df: pd.DataFrame, minority_boost: float = 2.0,
     w[1] = min(w[1], max_weight)
     weights = torch.tensor(w, dtype=torch.float32).to(DEVICE)
     print(f"  Class weights → no-stress: {w[0]:.2f}  stress: {w[1]:.2f}")
+    
     return weights
 
 
@@ -236,6 +238,7 @@ def train_epoch(model, loader, criterion, optimizer):
         total_loss += loss.item() * len(y)
         correct    += (logits.argmax(1) == y).sum().item()
         n          += len(y)
+
     return total_loss / n, correct / n
 
 
@@ -301,37 +304,29 @@ def permutation_importance(model, test_loader, criterion,
     return importance
 
 
-def print_split_balance(nurse_id, train_df, val_df, test_df):
-    """Print per-day and per-split label balance so data quality is visible."""
-    print(f"  {'Split':<8} {'Days':<6} {'No-stress':>10} {'Stress':>8} {'Stress%':>8}  {'Warning'}")
-    print(f"  {'-'*60}")
-    for name, df in [("train", train_df), ("val", val_df), ("test", test_df)]:
-        if len(df) == 0:
-            print(f"  {name:<8} {'—':>6}")
-            continue
+def print_split_balance(train_df, test_df, fold_i, n_folds):
+    """Print train/test split balance for one LODO fold."""
+    print(f"  Fold {fold_i+1}/{n_folds}  "
+          f"{'Split':<6} {'Days':>5} {'No-stress':>10} {'Stress':>8} {'Stress%':>8}")
+    print(f"  {'-'*55}")
+    for name, df in [("train", train_df), ("test", test_df)]:
         vc   = df[TARGET].value_counts().to_dict()
         n0, n1 = vc.get(0, 0), vc.get(1, 0)
         pct  = 100 * n1 / (n0 + n1) if (n0 + n1) > 0 else 0
-        warn = ""
-        if n0 == 0:
-            warn = "⚠️  NO no-stress samples!"
-        elif pct > 95:
-            warn = "⚠️  <5% no-stress — very imbalanced"
-        print(f"  {name:<8} {df['date'].nunique():<6} {n0:>10,} {n1:>8,} {pct:>7.1f}%  {warn}")
+        print(f"  {'':8} {name:<6} {df['date'].nunique():>5} {n0:>10,} {n1:>8,} {pct:>7.1f}%")
     print()
 
 
-def train_nurse(nurse_id, train_df, val_df, test_df):
-    """Full training loop for one nurse. Returns per-nurse metrics dict."""
+def train_one_fold(nurse_id, fold_i, n_folds, train_df, test_df):
+    """Train and evaluate one LODO fold. Returns a metrics dict."""
 
-    print_split_balance(nurse_id, train_df, val_df, test_df)
+    print_split_balance(train_df, test_df, fold_i, n_folds)
 
     train_loader = make_loader(train_df, shuffle=True,  oversample=True)
-    val_loader   = make_loader(val_df,   shuffle=False, oversample=False)
     test_loader  = make_loader(test_df,  shuffle=False, oversample=False)
 
     if train_loader is None:
-        print(f"  [Nurse {nurse_id}] Not enough train data — skipping.")
+        print(f"  Fold {fold_i+1}: not enough train windows — skipping.")
         return None
 
     weights   = compute_class_weights(train_df)
@@ -342,46 +337,37 @@ def train_nurse(nurse_id, train_df, val_df, test_df):
         optimizer, patience=2, factor=0.5
     )
 
-    best_val_f1   = -1
-    best_state    = None
-    patience_ctr  = 0
+    best_f1    = -1
+    best_state = None
+    patience_ctr = 0
 
     for epoch in range(1, EPOCHS + 1):
         tr_loss, tr_acc = train_epoch(model, train_loader, criterion, optimizer)
-
-        if val_loader:
-            val_loss, val_acc, _, val_y, _ = eval_epoch(model, val_loader, criterion)
-            val_preds = eval_epoch(model, val_loader, criterion)[2]
-            val_f1    = f1_score(val_y, val_preds, average="binary", zero_division=0)
-            scheduler.step(val_loss)
-        else:
-            val_loss, val_acc, val_f1 = tr_loss, tr_acc, 0.0
+        # Use train loss for scheduler since there's no separate val set in LODO
+        scheduler.step(tr_loss)
 
         if epoch % 5 == 0 or epoch == 1:
+            # Quick train-set F1 for progress monitoring only
+            _, _, tr_preds, tr_y, _ = eval_epoch(model, train_loader, criterion)
+            tr_f1 = f1_score(tr_y, tr_preds, average="macro", zero_division=0)
             print(f"  Epoch {epoch:02d} | "
-                  f"tr_loss={tr_loss:.4f} tr_acc={tr_acc:.3f} | "
-                  f"val_loss={val_loss:.4f} val_f1={val_f1:.3f}")
+                  f"tr_loss={tr_loss:.4f} tr_acc={tr_acc:.3f} tr_f1={tr_f1:.3f}")
 
-        if val_f1 > best_val_f1:
-            best_val_f1 = val_f1
-            best_state  = {k: v.clone() for k, v in model.state_dict().items()}
-            patience_ctr = 0
-        else:
-            patience_ctr += 1
-            if patience_ctr >= PATIENCE:
-                print(f"  Early stopping at epoch {epoch}.")
-                break
+            if tr_f1 > best_f1:
+                best_f1    = tr_f1
+                best_state = {k: v.clone() for k, v in model.state_dict().items()}
+                patience_ctr = 0
+            else:
+                patience_ctr += 1
+                if patience_ctr >= PATIENCE:
+                    print(f"  Early stopping at epoch {epoch}.")
+                    break
 
-    # ── Evaluate on test set ──────────────────────────────────────────────────
     if best_state:
         model.load_state_dict(best_state)
 
-    save_path = os.path.join(RESULTS_DIR, f"nurse_{nurse_id}_lstm.pt")
-    torch.save(model.state_dict(), save_path)
-
     if test_loader is None:
-        print(f"  [Nurse {nurse_id}] No test data.")
-        return {"nurse_id": nurse_id, "note": "no test data"}
+        return None
 
     _, test_acc, test_preds, test_y, test_probs = eval_epoch(
         model, test_loader, criterion
@@ -390,49 +376,102 @@ def train_nurse(nurse_id, train_df, val_df, test_df):
     report = classification_report(test_y, test_preds,
                                    target_names=["no-stress", "stress"],
                                    output_dict=True, zero_division=0)
-
-    # ── PR-AUC (average precision) — better than ROC-AUC for imbalanced data ──
     try:
         pr_auc = average_precision_score(test_y, test_probs)
     except ValueError:
         pr_auc = float("nan")
 
-    # ── Permutation feature importance ────────────────────────────────────────
-    perm_importance = permutation_importance(
-        model, test_loader, criterion, n_repeats=10
-    )
-
+    perm_imp = permutation_importance(model, test_loader, criterion, n_repeats=10)
+    
+    test_day = test_df["date"].iloc[0]
     cm = confusion_matrix(test_y, test_preds)
-    print(f"\n  === Nurse {nurse_id} Test Results ===")
-    print(f"  Acc={test_acc:.3f}  PR-AUC={pr_auc:.3f}")
-    print(f"  Confusion matrix:\n{cm}")
+    print(f"  Fold {fold_i+1} test day={test_day} | "
+          f"Acc={test_acc:.3f} PR-AUC={pr_auc:.3f}")
+    print(f"  CM: {cm.tolist()}")
     print(classification_report(test_y, test_preds,
                                  target_names=["no-stress", "stress"],
                                  zero_division=0))
-    print("  Permutation Feature Importance (mean F1 drop):")
-    for feat, score in sorted(perm_importance.items(), key=lambda x: -x[1]):
-        print(f"    {feat:<15}: {score:+.4f}")
-
+    
     return {
-        "nurse_id":           nurse_id,
+        "fold":               fold_i,
+        "test_day":           str(test_day),
         "accuracy":           test_acc,
         "pr_auc":             pr_auc,
-        # macro averages
         "f1_macro":           report["macro avg"]["f1-score"],
         "precision_macro":    report["macro avg"]["precision"],
         "recall_macro":       report["macro avg"]["recall"],
-        # no-stress class
         "f1_nostress":        report["no-stress"]["f1-score"],
         "precision_nostress": report["no-stress"]["precision"],
         "recall_nostress":    report["no-stress"]["recall"],
-        # stress class
         "f1_stress":          report["stress"]["f1-score"],
         "precision_stress":   report["stress"]["precision"],
         "recall_stress":      report["stress"]["recall"],
         "n_test_windows":     len(test_preds),
-        "model_path":         save_path,
-        "perm_importance":    perm_importance,
+        "perm_importance":    perm_imp,
     }
+
+
+def train_nurse_lodo(nurse_id, df):
+    """Leave-One-Day-Out cross-validation for one nurse.
+
+    For each balanced day d:
+      - test  = day d
+      - train = all other balanced days
+    Returns averaged metrics across folds.
+    """
+    days   = sorted(df["date"].unique())
+    n_days = len(days)
+
+    if n_days < 2:
+        print(f"  [Nurse {nurse_id}] Only {n_days} balanced day(s) — skipping LODO.")
+        return None
+
+    print(f"  Running LODO over {n_days} balanced days...")
+    fold_results = []
+
+    for fold_i, test_day in enumerate(days):
+        train_days = [d for d in days if d != test_day]
+        train_df   = df[df["date"].isin(train_days)].copy()
+        test_df    = df[df["date"] == test_day].copy()
+
+        # Normalize: fit on train days only
+        train_df, test_df, _ = normalize_nurse(train_df, test_df)
+
+        result = train_one_fold(nurse_id, fold_i, n_days, train_df, test_df)
+        if result:
+            fold_results.append(result)
+
+    if not fold_results:
+        return None
+
+    # ── Average metrics across folds ─────────────────────────────────────────
+    metric_keys = [
+        "accuracy", "pr_auc",
+        "f1_macro", "precision_macro", "recall_macro",
+        "f1_nostress", "precision_nostress", "recall_nostress",
+        "f1_stress",   "precision_stress",   "recall_stress",
+    ]
+    avg = {k: float(np.nanmean([r[k] for r in fold_results])) for k in metric_keys}
+    std = {f"{k}_std": float(np.nanstd([r[k] for r in fold_results])) for k in metric_keys}
+
+    # Average permutation importance
+    imp_df  = pd.DataFrame([r["perm_importance"] for r in fold_results])
+    avg_imp = imp_df.mean().to_dict()
+
+    save_path = os.path.join(RESULTS_DIR, f"nurse_{nurse_id}_lodo_folds.csv")
+    pd.DataFrame(fold_results).drop(
+        columns=["perm_importance"], errors="ignore"
+    ).to_csv(save_path, index=False)
+
+    print(f"=== Nurse {nurse_id} LODO Summary ({len(fold_results)} folds) ===")
+    print(f"  PR-AUC:       {avg['pr_auc']:.3f} ± {std['pr_auc_std']:.3f}")
+    print(f"  F1 no-stress: {avg['f1_nostress']:.3f} ± {std['f1_nostress_std']:.3f}")
+    print(f"  F1 stress:    {avg['f1_stress']:.3f} ± {std['f1_stress_std']:.3f}")
+    print(f"  F1 macro:     {avg['f1_macro']:.3f} ± {std['f1_macro_std']:.3f}")
+    print(f"  Fold results → {save_path}")
+
+    return {"nurse_id": nurse_id, "n_folds": len(fold_results),
+            **avg, **std, "perm_importance": avg_imp}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -446,18 +485,19 @@ def main():
             f"No nurse CSVs found in '{DATA_DIR}'. "
             "Run the preprocessing script first."
         )
+        
     print(f"Found {len(csv_files)} nurse files.\n")
 
-    DISCARD_NURSES = {"CE", "EG"}   # CE/EG: no label-0 samples; 6D: only 1 day
+    DISCARD_NURSES = {"CE", "EG", "6D"}   # CE/EG: no label-0 samples; 6D: only 1 day
 
     # ── Dataset overview ──────────────────────────────────────────────────────
     print(f"{'NURSE':<12} {'ROWS':>10} {'DAYS':>6} {'NO-STRESS':>12} {'STRESS':>10} {'STRESS%':>9}")
     print("-" * 65)
     for p in csv_files:
         nid = os.path.basename(p).replace("processed_nurse_", "").replace(".csv", "")
-        # if nid in DISCARD_NURSES:
-        #     print(f"{nid:<12} {'(skipped)':>10}")
-        #     continue
+        if nid in DISCARD_NURSES:
+            print(f"{nid:<12} {'(skipped)':>10}")
+            continue
         _df = pd.read_csv(p, usecols=["datetime", "label"], parse_dates=["datetime"])
         _df["label_binary"] = (_df["label"] > 0).astype(int)
         _df["date"] = _df["datetime"].dt.date
@@ -476,7 +516,7 @@ def main():
         nurse_id = os.path.basename(path).replace("processed_nurse_", "").replace(".csv", "")
 
         if nurse_id in DISCARD_NURSES:
-            print(f"  [Nurse {nurse_id}] Skipped (no no-stress label).")
+            print(f"  [Nurse {nurse_id}] Skipped.")
             continue
 
         print(f"\n{'='*60}")
@@ -484,28 +524,18 @@ def main():
         print(f"{'='*60}")
 
         df = load_nurse(path)
-
-        # Label distribution
         vc = df["label_binary"].value_counts().to_dict()
         print(f"  Rows: {len(df):,}  |  label dist: {vc}")
 
-        # Day-based split
-        train_df, val_df, test_df = day_split(df)
-        n_days = df["date"].nunique()
-        print(f"  Days: total={n_days}, "
-              f"train={train_df['date'].nunique()}, "
-              f"val={val_df['date'].nunique()}, "
-              f"test={test_df['date'].nunique()}")
+        # ── Filter to balanced days only ──────────────────────────────────────
+        df_bal = filter_balanced_days(df)
 
-        if len(train_df) == 0:
-            print("  Skipping — insufficient data.")
+        if df_bal["date"].nunique() < 2:
+            print(f"  [Nurse {nurse_id}] Fewer than 2 balanced days — skipping.")
             continue
 
-        # Per-nurse normalisation
-        train_df, val_df, test_df, _ = normalize_nurse(train_df, val_df, test_df)
-
-        # Train LSTM
-        result = train_nurse(nurse_id, train_df, val_df, test_df)
+        # ── LODO cross-validation ─────────────────────────────────────────────
+        result = train_nurse_lodo(nurse_id, df_bal)
         if result:
             all_results.append(result)
 
