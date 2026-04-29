@@ -1,0 +1,392 @@
+[
+  {
+    "nurse_id": "15",
+    "n_windows": 1927,
+    "n_train": 1348,
+    "n_test": 579,
+    "train_label_distribution": {
+      "n_pos": 1264,
+      "n_neg": 84
+    },
+    "test_label_distribution": {
+      "n_pos": 579,
+      "n_neg": 0
+    },
+    "train_metrics": {
+      "accuracy": 0.9962908011869436,
+      "balanced_accuracy": 0.9980221518987342,
+      "f1": 0.9980182322631788,
+      "precision": 1.0,
+      "recall": 0.9960443037974683,
+      "n_samples": 1348
+    },
+    "test_metrics": {
+      "accuracy": 1.0,
+      "balanced_accuracy": 0.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_samples": 579
+    }
+  },
+  {
+    "nurse_id": "5C",
+    "n_windows": 5407,
+    "n_train": 3784,
+    "n_test": 1623,
+    "train_label_distribution": {
+      "n_pos": 1852,
+      "n_neg": 1932
+    },
+    "test_label_distribution": {
+      "n_pos": 1623,
+      "n_neg": 0
+    },
+    "train_metrics": {
+      "accuracy": 0.9984143763213531,
+      "balanced_accuracy": 0.9983801295896328,
+      "f1": 0.9983775013520823,
+      "precision": 1.0,
+      "recall": 0.9967602591792657,
+      "n_samples": 3784
+    },
+    "test_metrics": {
+      "accuracy": 0.7258163894023414,
+      "balanced_accuracy": 0.0,
+      "f1": 0.8411281685112459,
+      "precision": 1.0,
+      "recall": 0.7258163894023414,
+      "n_samples": 1623
+    }
+  },
+  {
+    "nurse_id": "6B",
+    "n_windows": 5154,
+    "n_train": 3607,
+    "n_test": 1547,
+    "train_label_distribution": {
+      "n_pos": 2940,
+      "n_neg": 667
+    },
+    "test_label_distribution": {
+      "n_pos": 1547,
+      "n_neg": 0
+    },
+    "train_metrics": {
+      "accuracy": 0.997782090379817,
+      "balanced_accuracy": 0.998639455782313,
+      "f1": 0.9986376021798365,
+      "precision": 1.0,
+      "recall": 0.9972789115646259,
+      "n_samples": 3607
+    },
+    "test_metrics": {
+      "accuracy": 0.9961215255332903,
+      "balanced_accuracy": 0.0,
+      "f1": 0.9980569948186528,
+      "precision": 1.0,
+      "recall": 0.9961215255332903,
+      "n_samples": 1547
+    }
+  },
+  {
+    "nurse_id": "6D",
+    "n_windows": 3691,
+    "n_train": 2583,
+    "n_test": 1108,
+    "train_label_distribution": {
+      "n_pos": 547,
+      "n_neg": 2036
+    },
+    "test_label_distribution": {
+      "n_pos": 0,
+      "n_neg": 1108
+    },
+    "train_metrics": {
+      "accuracy": 1.0,
+      "balanced_accuracy": 1.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_samples": 2583
+    },
+    "test_metrics": {
+      "accuracy": 0.9981949458483754,
+      "balanced_accuracy": 0.0,
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "n_samples": 1108
+    }
+  },
+  {
+    "nurse_id": "7A",
+    "n_windows": 8603,
+    "n_train": 6022,
+    "n_test": 2581,
+    "train_label_distribution": {
+      "n_pos": 5854,
+      "n_neg": 168
+    },
+    "test_label_distribution": {
+      "n_pos": 2461,
+      "n_neg": 120
+    },
+    "train_metrics": {
+      "accuracy": 0.9958485552972435,
+      "balanced_accuracy": 0.9978647078920396,
+      "f1": 0.9978601386630146,
+      "precision": 1.0,
+      "recall": 0.9957294157840793,
+      "n_samples": 6022
+    },
+    "test_metrics": {
+      "accuracy": 0.9558310732274312,
+      "balanced_accuracy": 0.525,
+      "f1": 0.97736298649722,
+      "precision": 0.9557281553398058,
+      "recall": 1.0,
+      "n_samples": 2581
+    }
+  },
+  {
+    "nurse_id": "7E",
+    "n_windows": 1579,
+    "n_train": 1105,
+    "n_test": 474,
+    "train_label_distribution": {
+      "n_pos": 750,
+      "n_neg": 355
+    },
+    "test_label_distribution": {
+      "n_pos": 102,
+      "n_neg": 372
+    },
+    "train_metrics": {
+      "accuracy": 0.9981900452488688,
+      "balanced_accuracy": 0.9986666666666666,
+      "f1": 0.9986648865153538,
+      "precision": 1.0,
+      "recall": 0.9973333333333333,
+      "n_samples": 1105
+    },
+    "test_metrics": {
+      "accuracy": 0.43037974683544306,
+      "balanced_accuracy": 0.6370967741935484,
+      "f1": 0.43037974683544306,
+      "precision": 0.27419354838709675,
+      "recall": 1.0,
+      "n_samples": 474
+    }
+  },
+  {
+    "nurse_id": "83",
+    "n_windows": 8575,
+    "n_train": 6002,
+    "n_test": 2573,
+    "train_label_distribution": {
+      "n_pos": 4982,
+      "n_neg": 1020
+    },
+    "test_label_distribution": {
+      "n_pos": 2573,
+      "n_neg": 0
+    },
+    "train_metrics": {
+      "accuracy": 0.9968343885371543,
+      "balanced_accuracy": 0.9977033005092844,
+      "f1": 0.9980898763446265,
+      "precision": 0.9997985901309164,
+      "recall": 0.9963869931754316,
+      "n_samples": 6002
+    },
+    "test_metrics": {
+      "accuracy": 0.8756315584920327,
+      "balanced_accuracy": 0.0,
+      "f1": 0.9336924989639453,
+      "precision": 1.0,
+      "recall": 0.8756315584920327,
+      "n_samples": 2573
+    }
+  },
+  {
+    "nurse_id": "8B",
+    "n_windows": 2643,
+    "n_train": 1850,
+    "n_test": 793,
+    "train_label_distribution": {
+      "n_pos": 986,
+      "n_neg": 864
+    },
+    "test_label_distribution": {
+      "n_pos": 793,
+      "n_neg": 0
+    },
+    "train_metrics": {
+      "accuracy": 1.0,
+      "balanced_accuracy": 1.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_samples": 1850
+    },
+    "test_metrics": {
+      "accuracy": 0.27616645649432536,
+      "balanced_accuracy": 0.0,
+      "f1": 0.43280632411067194,
+      "precision": 1.0,
+      "recall": 0.27616645649432536,
+      "n_samples": 793
+    }
+  },
+  {
+    "nurse_id": "94",
+    "n_windows": 3658,
+    "n_train": 2560,
+    "n_test": 1098,
+    "train_label_distribution": {
+      "n_pos": 1111,
+      "n_neg": 1449
+    },
+    "test_label_distribution": {
+      "n_pos": 264,
+      "n_neg": 834
+    },
+    "train_metrics": {
+      "accuracy": 0.9984375,
+      "balanced_accuracy": 0.9981998199819981,
+      "f1": 0.9981965734896303,
+      "precision": 1.0,
+      "recall": 0.9963996399639964,
+      "n_samples": 2560
+    },
+    "test_metrics": {
+      "accuracy": 0.6293260473588342,
+      "balanced_accuracy": 0.691274253324613,
+      "f1": 0.5125748502994012,
+      "precision": 0.37478108581436076,
+      "recall": 0.8106060606060606,
+      "n_samples": 1098
+    }
+  },
+  {
+    "nurse_id": "BG",
+    "n_windows": 3799,
+    "n_train": 2659,
+    "n_test": 1140,
+    "train_label_distribution": {
+      "n_pos": 2527,
+      "n_neg": 132
+    },
+    "test_label_distribution": {
+      "n_pos": 1140,
+      "n_neg": 0
+    },
+    "train_metrics": {
+      "accuracy": 1.0,
+      "balanced_accuracy": 1.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_samples": 2659
+    },
+    "test_metrics": {
+      "accuracy": 0.9508771929824561,
+      "balanced_accuracy": 0.0,
+      "f1": 0.9748201438848921,
+      "precision": 1.0,
+      "recall": 0.9508771929824561,
+      "n_samples": 1140
+    }
+  },
+  {
+    "nurse_id": "DF",
+    "n_windows": 5671,
+    "n_train": 3969,
+    "n_test": 1702,
+    "train_label_distribution": {
+      "n_pos": 3561,
+      "n_neg": 408
+    },
+    "test_label_distribution": {
+      "n_pos": 1702,
+      "n_neg": 0
+    },
+    "train_metrics": {
+      "accuracy": 0.999748047367095,
+      "balanced_accuracy": 0.9998595900028082,
+      "f1": 0.9998595702850723,
+      "precision": 1.0,
+      "recall": 0.9997191800056164,
+      "n_samples": 3969
+    },
+    "test_metrics": {
+      "accuracy": 0.745593419506463,
+      "balanced_accuracy": 0.0,
+      "f1": 0.85425782564793,
+      "precision": 1.0,
+      "recall": 0.745593419506463,
+      "n_samples": 1702
+    }
+  },
+  {
+    "nurse_id": "E4",
+    "n_windows": 9294,
+    "n_train": 6505,
+    "n_test": 2789,
+    "train_label_distribution": {
+      "n_pos": 5815,
+      "n_neg": 690
+    },
+    "test_label_distribution": {
+      "n_pos": 1721,
+      "n_neg": 1068
+    },
+    "train_metrics": {
+      "accuracy": 0.9998462720983858,
+      "balanced_accuracy": 0.9999140154772141,
+      "f1": 0.9999140080832402,
+      "precision": 1.0,
+      "recall": 0.9998280309544282,
+      "n_samples": 6505
+    },
+    "test_metrics": {
+      "accuracy": 0.5414126927214056,
+      "balanced_accuracy": 0.4386984311446833,
+      "f1": 0.7024889509188184,
+      "precision": 0.5857253685027153,
+      "recall": 0.8773968622893666,
+      "n_samples": 2789
+    }
+  },
+  {
+    "nurse_id": "F5",
+    "n_windows": 3343,
+    "n_train": 2340,
+    "n_test": 1003,
+    "train_label_distribution": {
+      "n_pos": 2148,
+      "n_neg": 192
+    },
+    "test_label_distribution": {
+      "n_pos": 1003,
+      "n_neg": 0
+    },
+    "train_metrics": {
+      "accuracy": 1.0,
+      "balanced_accuracy": 1.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_samples": 2340
+    },
+    "test_metrics": {
+      "accuracy": 1.0,
+      "balanced_accuracy": 0.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_samples": 1003
+    }
+  }
+]
