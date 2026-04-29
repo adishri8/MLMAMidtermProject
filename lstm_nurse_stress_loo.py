@@ -55,22 +55,14 @@ TARGET   = "label_binary"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {DEVICE}")
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 1.  DATA LOADING & PREPROCESSING
-# ─────────────────────────────────────────────────────────────────────────────
-
 def load_nurse(path: str) -> pd.DataFrame:
     """Load one nurse CSV and apply all preprocessing steps."""
     df = pd.read_csv(path, parse_dates=["datetime"])
 
-    # ── Binarize labels: 0 → no-stress, 1 & 2 → stress ──────────────────────
     df["label_binary"] = (df["label"] > 0).astype(int)
 
-    # ── Extract date (day) for day-based splitting ────────────────────────────
     df["date"] = df["datetime"].dt.date
 
-    # ── Add time_progress: fraction of the day elapsed (0 → 1) ───────────────
     df = df.sort_values("datetime").reset_index(drop=True)
     df["time_progress"] = (
         df.groupby("date")["time"]
@@ -122,11 +114,6 @@ def normalize_nurse(train_df, test_df, features=FEATURES):
 
     return train_df, test_df, scaler
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 2.  SEQUENCE DATASET
-# ─────────────────────────────────────────────────────────────────────────────
-
 class SequenceDataset(Dataset):
     """Sliding-window dataset over a single nurse's data."""
 
@@ -176,10 +163,6 @@ def make_loader(df, seq_len=SEQ_LEN, stride=STRIDE,
                       shuffle=shuffle, drop_last=False)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 3.  MODEL
-# ─────────────────────────────────────────────────────────────────────────────
-
 class StressLSTM(nn.Module):
     def __init__(self, input_size: int, hidden_size: int = HIDDEN_SIZE,
                  num_layers: int = NUM_LAYERS, dropout: float = DROPOUT):
@@ -199,11 +182,6 @@ class StressLSTM(nn.Module):
         # x: (batch, seq_len, input_size)
         out, _ = self.lstm(x)
         return self.head(out[:, -1, :])   # last time-step
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 4.  TRAIN / EVAL HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
 
 def compute_class_weights(df: pd.DataFrame, minority_boost: float = 2.0,
                           max_weight: float = 20.0):
@@ -444,7 +422,7 @@ def train_nurse_lodo(nurse_id, df):
     if not fold_results:
         return None
 
-    # ── Average metrics across folds ─────────────────────────────────────────
+    # Store average metrics across folds 
     metric_keys = [
         "accuracy", "pr_auc",
         "f1_macro", "precision_macro", "recall_macro",
@@ -473,11 +451,6 @@ def train_nurse_lodo(nurse_id, df):
     return {"nurse_id": nurse_id, "n_folds": len(fold_results),
             **avg, **std, "perm_importance": avg_imp}
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 5.  MAIN LOOP
-# ─────────────────────────────────────────────────────────────────────────────
-
 def main():
     csv_files = sorted(glob.glob(os.path.join(DATA_DIR, "processed_nurse_*.csv")))
     if not csv_files:
@@ -488,9 +461,9 @@ def main():
         
     print(f"Found {len(csv_files)} nurse files.\n")
 
-    DISCARD_NURSES = {"CE", "EG", "6D"}   # CE/EG: no label-0 samples; 6D: only 1 day
+    DISCARD_NURSES = {"CE", "EG", "6D"}   # CE/EG: no label-0 samples; 6D: only 1 day --> Discard these nurses 
 
-    # ── Dataset overview ──────────────────────────────────────────────────────
+    # Print dataset overvieew 
     print(f"{'NURSE':<12} {'ROWS':>10} {'DAYS':>6} {'NO-STRESS':>12} {'STRESS':>10} {'STRESS%':>9}")
     print("-" * 65)
     for p in csv_files:
@@ -527,26 +500,23 @@ def main():
         vc = df["label_binary"].value_counts().to_dict()
         print(f"  Rows: {len(df):,}  |  label dist: {vc}")
 
-        # ── Filter to balanced days only ──────────────────────────────────────
+        # Filter to balanced days only 
         df_bal = filter_balanced_days(df)
 
         if df_bal["date"].nunique() < 2:
             print(f"  [Nurse {nurse_id}] Fewer than 2 balanced days — skipping.")
             continue
 
-        # ── LODO cross-validation ─────────────────────────────────────────────
         result = train_nurse_lodo(nurse_id, df_bal)
         if result:
             all_results.append(result)
 
-    # ── Aggregate summary ─────────────────────────────────────────────────────
     print(f"\n{'='*60}")
     print("  AGGREGATE RESULTS ACROSS NURSES")
     print(f"{'='*60}")
 
     results_df = pd.DataFrame([r for r in all_results if "accuracy" in r])
 
-    # ── Per-nurse table ───────────────────────────────────────────────────────
     display_cols = [
         "nurse_id", "accuracy", "pr_auc",
         "precision_nostress", "recall_nostress", "f1_nostress",
@@ -555,7 +525,6 @@ def main():
     ]
     print(results_df[display_cols].to_string(index=False))
 
-    # ── Mean ± Std ────────────────────────────────────────────────────────────
     print("\n  Mean ± Std:")
     summary_cols = [
         "accuracy", "pr_auc",
@@ -567,7 +536,6 @@ def main():
         m, s = results_df[col].mean(), results_df[col].std()
         print(f"    {col:<25}: {m:.3f} ± {s:.3f}")
 
-    # ── Aggregate permutation importance across nurses ────────────────────────
     print("\n  Aggregate Permutation Feature Importance (mean F1 drop across nurses):")
     all_imp = pd.DataFrame([r["perm_importance"] for r in all_results
                             if "perm_importance" in r])
@@ -576,7 +544,6 @@ def main():
     for feat in imp_mean.index:
         print(f"    {feat:<15}: {imp_mean[feat]:+.4f} ± {imp_std[feat]:.4f}")
 
-    # ── Save CSVs ─────────────────────────────────────────────────────────────
     out_csv = os.path.join(RESULTS_DIR, "nurse_results_summary.csv")
     results_df.drop(columns=["perm_importance", "model_path"],
                     errors="ignore").to_csv(out_csv, index=False)
