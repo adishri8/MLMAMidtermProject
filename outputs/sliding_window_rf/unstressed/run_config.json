@@ -1,0 +1,25 @@
+{
+  "data_dir": "data/Aditya",
+  "positive_class": "unstressed",
+  "window_seconds": 30.0,
+  "stride_seconds": 5.0,
+  "threshold_strategy": "balanced_acc",
+  "balance_train": "undersample",
+  "discard_nurses": [
+    "CE",
+    "EG"
+  ],
+  "num_rows_all": 10145840,
+  "num_nurses": 13,
+  "num_nurse_day_groups": 94,
+  "num_valid_folds": 10,
+  "final_threshold": 0.4699999999999999,
+  "final_model_train_metrics": {
+    "accuracy": 0.9789031105819318,
+    "balanced_accuracy": 0.9789031105819319,
+    "f1": 0.978989884018231,
+    "precision": 0.9749797032991364,
+    "recall": 0.9830331894627177,
+    "n_samples": 26876
+  }
+}

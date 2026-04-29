@@ -1,0 +1,22 @@
+{
+  "data_dir": "data/Aditya",
+  "positive_class": "unstressed",
+  "window_seconds": 30.0,
+  "stride_seconds": 5.0,
+  "discard_nurses": [
+    "CE",
+    "EG"
+  ],
+  "num_rows_all": 10145840,
+  "num_nurses": 13,
+  "num_nurse_day_groups": 94,
+  "num_valid_folds": 10,
+  "final_model_train_metrics": {
+    "accuracy": 0.9820776001779529,
+    "balanced_accuracy": 0.9795523534195956,
+    "f1": 0.9587357330992098,
+    "precision": 0.9428694776226795,
+    "recall": 0.9751451108795952,
+    "n_samples": 62938
+  }
+}
