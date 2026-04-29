@@ -1,0 +1,498 @@
+Using device: cpu
+Found 15 nurse files.
+
+NURSE              ROWS   DAYS    NO-STRESS     STRESS   STRESS%
+-----------------------------------------------------------------
+15              309,131      6       13,441    295,690     95.7%
+5C              865,930      5      309,121    556,809     64.3%
+6B              825,549      6      107,522    718,027     87.0%
+6D            (skipped)
+7A            1,377,342     13       46,082  1,331,260     96.7%
+7E              253,447      5      117,124    136,323     53.8%
+83            1,372,819      8      163,204  1,209,615     88.1%
+8B              423,763      5      138,243    285,520     67.4%
+94              586,096      9      366,153    219,943     37.5%
+BG              608,655      8       21,122    587,533     96.5%
+CE            (skipped)
+DF              908,168      7       65,282    842,886     92.8%
+E4            1,487,871     11      281,190  1,206,681     81.1%
+EG            (skipped)
+F5              535,706     10       30,721    504,985     94.3%
+-----------------------------------------------------------------
+
+
+============================================================
+  Processing Nurse 15
+============================================================
+  Rows: 309,131  |  label dist: {1: 295690, 0: 13441}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-07-08     100.0%  ✗ dropped (too much stress)
+  2020-07-21      78.8%  ✓ kept
+  2020-07-22     100.0%  ✗ dropped (too much stress)
+  2020-07-24     100.0%  ✗ dropped (too much stress)
+  2020-07-28     100.0%  ✗ dropped (too much stress)
+  2020-07-31     100.0%  ✗ dropped (too much stress)
+  → 1 / 6 days kept (ratio window 20–80%)
+  [Nurse 15] Fewer than 2 balanced days — skipping.
+
+============================================================
+  Processing Nurse 5C
+============================================================
+  Rows: 865,930  |  label dist: {1: 556809, 0: 309121}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-04-14     100.0%  ✗ dropped (too much stress)
+  2020-05-08     100.0%  ✗ dropped (too much stress)
+  2020-06-23       9.6%  ✗ dropped (too little stress)
+  2020-06-24     100.0%  ✗ dropped (too much stress)
+  2020-06-25     100.0%  ✗ dropped (too much stress)
+  → 0 / 5 days kept (ratio window 20–80%)
+  [Nurse 5C] Fewer than 2 balanced days — skipping.
+
+============================================================
+  Processing Nurse 6B
+============================================================
+  Rows: 825,549  |  label dist: {1: 718027, 0: 107522}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-06-23      48.0%  ✓ kept
+  2020-06-24     100.0%  ✗ dropped (too much stress)
+  2020-06-25     100.0%  ✗ dropped (too much stress)
+  2020-06-26     100.0%  ✗ dropped (too much stress)
+  2020-06-29      85.6%  ✗ dropped (too much stress)
+  2020-06-30     100.0%  ✗ dropped (too much stress)
+  → 1 / 6 days kept (ratio window 20–80%)
+  [Nurse 6B] Fewer than 2 balanced days — skipping.
+  [Nurse 6D] Skipped.
+
+============================================================
+  Processing Nurse 7A
+============================================================
+  Rows: 1,377,342  |  label dist: {1: 1331260, 0: 46082}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-04-18     100.0%  ✗ dropped (too much stress)
+  2020-04-19     100.0%  ✗ dropped (too much stress)
+  2020-04-22     100.0%  ✗ dropped (too much stress)
+  2020-04-23     100.0%  ✗ dropped (too much stress)
+  2020-05-09     100.0%  ✗ dropped (too much stress)
+  2020-06-23      90.2%  ✗ dropped (too much stress)
+  2020-06-25     100.0%  ✗ dropped (too much stress)
+  2020-06-26     100.0%  ✗ dropped (too much stress)
+  2020-06-30      71.4%  ✓ kept
+  2020-07-01     100.0%  ✗ dropped (too much stress)
+  2020-07-02     100.0%  ✗ dropped (too much stress)
+  2020-07-06     100.0%  ✗ dropped (too much stress)
+  2020-07-07     100.0%  ✗ dropped (too much stress)
+  → 1 / 13 days kept (ratio window 20–80%)
+  [Nurse 7A] Fewer than 2 balanced days — skipping.
+
+============================================================
+  Processing Nurse 7E
+============================================================
+  Rows: 253,447  |  label dist: {1: 136323, 0: 117124}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-10-21       0.0%  ✗ dropped (too little stress)
+  2020-10-22       0.0%  ✗ dropped (too little stress)
+  2020-10-31      81.8%  ✗ dropped (too much stress)
+  2020-11-04     100.0%  ✗ dropped (too much stress)
+  2020-11-05       0.0%  ✗ dropped (too little stress)
+  → 0 / 5 days kept (ratio window 20–80%)
+  [Nurse 7E] Fewer than 2 balanced days — skipping.
+
+============================================================
+  Processing Nurse 83
+============================================================
+  Rows: 1,372,819  |  label dist: {1: 1209615, 0: 163204}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-10-30     100.0%  ✗ dropped (too much stress)
+  2020-11-01     100.0%  ✗ dropped (too much stress)
+  2020-11-02      74.1%  ✓ kept
+  2020-11-05      26.9%  ✓ kept
+  2020-11-06      20.0%  ✓ kept
+  2020-12-10     100.0%  ✗ dropped (too much stress)
+  2020-12-12     100.0%  ✗ dropped (too much stress)
+  2020-12-13     100.0%  ✗ dropped (too much stress)
+  → 3 / 8 days kept (ratio window 20–80%)
+  Running LODO over 3 balanced days...
+  Fold 1/3  Split   Days  No-stress   Stress  Stress%
+  -------------------------------------------------------
+           train      2     90,243   26,882    23.0%
+           test       1     72,961  209,283    74.1%
+
+  Class weights → no-stress: 1.30  stress: 2.18
+  Epoch 01 | tr_loss=0.3591 tr_acc=0.799 tr_f1=0.973
+  Epoch 05 | tr_loss=0.0299 tr_acc=0.994 tr_f1=0.997
+  Epoch 10 | tr_loss=0.0687 tr_acc=0.980 tr_f1=0.985
+  Epoch 15 | tr_loss=0.0082 tr_acc=0.998 tr_f1=0.998
+  Epoch 20 | tr_loss=0.0093 tr_acc=0.997 tr_f1=0.997
+  Epoch 25 | tr_loss=0.0077 tr_acc=0.998 tr_f1=0.995
+  Epoch 30 | tr_loss=0.0081 tr_acc=0.998 tr_f1=0.997
+  Fold 1 test day=2020-11-02 | Acc=0.240 PR-AUC=0.611
+  CM: [[1086, 371], [3914, 270]]
+              precision    recall  f1-score   support
+
+   no-stress       0.22      0.75      0.34      1457
+      stress       0.42      0.06      0.11      4184
+
+    accuracy                           0.24      5641
+   macro avg       0.32      0.40      0.22      5641
+weighted avg       0.37      0.24      0.17      5641
+
+  Fold 2/3  Split   Days  No-stress   Stress  Stress%
+  -------------------------------------------------------
+           train      2    126,723  222,724    63.7%
+           test       1     36,481   13,441    26.9%
+
+  Class weights → no-stress: 2.76  stress: 0.78
+  Epoch 01 | tr_loss=0.3668 tr_acc=0.738 tr_f1=0.847
+  Epoch 05 | tr_loss=0.0897 tr_acc=0.941 tr_f1=0.955
+  Epoch 10 | tr_loss=0.0494 tr_acc=0.972 tr_f1=0.994
+  Epoch 15 | tr_loss=0.0468 tr_acc=0.985 tr_f1=0.807
+  Epoch 20 | tr_loss=0.0097 tr_acc=0.999 tr_f1=0.999
+  Epoch 25 | tr_loss=0.0071 tr_acc=0.999 tr_f1=1.000
+  Epoch 30 | tr_loss=0.0033 tr_acc=0.999 tr_f1=0.999
+  Fold 2 test day=2020-11-05 | Acc=0.009 PR-AUC=0.149
+  CM: [[9, 719], [267, 0]]
+              precision    recall  f1-score   support
+
+   no-stress       0.03      0.01      0.02       728
+      stress       0.00      0.00      0.00       267
+
+    accuracy                           0.01       995
+   macro avg       0.02      0.01      0.01       995
+weighted avg       0.02      0.01      0.01       995
+
+  Fold 3/3  Split   Days  No-stress   Stress  Stress%
+  -------------------------------------------------------
+           train      2    109,442  222,724    67.1%
+           test       1     53,762   13,441    20.0%
+
+  Class weights → no-stress: 3.04  stress: 0.75
+  Epoch 01 | tr_loss=0.4209 tr_acc=0.600 tr_f1=0.633
+  Epoch 05 | tr_loss=0.2067 tr_acc=0.860 tr_f1=0.884
+  Epoch 10 | tr_loss=0.1111 tr_acc=0.939 tr_f1=0.940
+  Epoch 15 | tr_loss=0.1806 tr_acc=0.904 tr_f1=0.600
+  Epoch 20 | tr_loss=0.1077 tr_acc=0.936 tr_f1=0.948
+  Epoch 25 | tr_loss=0.0664 tr_acc=0.965 tr_f1=0.967
+  Epoch 30 | tr_loss=0.0481 tr_acc=0.972 tr_f1=0.969
+  Fold 3 test day=2020-11-06 | Acc=0.402 PR-AUC=0.133
+  CM: [[466, 606], [196, 73]]
+              precision    recall  f1-score   support
+
+   no-stress       0.70      0.43      0.54      1072
+      stress       0.11      0.27      0.15       269
+
+    accuracy                           0.40      1341
+   macro avg       0.41      0.35      0.35      1341
+weighted avg       0.58      0.40      0.46      1341
+
+=== Nurse 83 LODO Summary (3 folds) ===
+  PR-AUC:       0.298 ± 0.222
+  F1 no-stress: 0.297 ± 0.214
+  F1 stress:    0.089 ± 0.065
+  F1 macro:     0.193 ± 0.139
+  Fold results → results/nurse_83_lodo_folds.csv
+
+============================================================
+  Processing Nurse 8B
+============================================================
+  Rows: 423,763  |  label dist: {1: 285520, 0: 138243}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-07-15      47.8%  ✓ kept
+  2020-07-16     100.0%  ✗ dropped (too much stress)
+  2020-07-17      34.9%  ✓ kept
+  2020-07-20     100.0%  ✗ dropped (too much stress)
+  2020-07-22     100.0%  ✗ dropped (too much stress)
+  → 2 / 5 days kept (ratio window 20–80%)
+  Running LODO over 2 balanced days...
+  Fold 1/2  Split   Days  No-stress   Stress  Stress%
+  -------------------------------------------------------
+           train      1     92,162   49,351    34.9%
+           test       1     46,081   42,243    47.8%
+
+  Class weights → no-stress: 1.54  stress: 1.43
+  Epoch 01 | tr_loss=0.4780 tr_acc=0.802 tr_f1=0.878
+  Epoch 05 | tr_loss=0.3429 tr_acc=0.848 tr_f1=0.894
+  Epoch 10 | tr_loss=0.0759 tr_acc=0.984 tr_f1=0.988
+  Epoch 15 | tr_loss=0.0106 tr_acc=0.998 tr_f1=0.998
+  Epoch 20 | tr_loss=0.0063 tr_acc=0.999 tr_f1=1.000
+  Epoch 25 | tr_loss=0.0070 tr_acc=0.999 tr_f1=0.999
+  Epoch 30 | tr_loss=0.0023 tr_acc=1.000 tr_f1=0.999
+  Fold 1 test day=2020-07-15 | Acc=0.805 PR-AUC=0.887
+  CM: [[889, 33], [310, 531]]
+              precision    recall  f1-score   support
+
+   no-stress       0.74      0.96      0.84       922
+      stress       0.94      0.63      0.76       841
+
+    accuracy                           0.81      1763
+   macro avg       0.84      0.80      0.80      1763
+weighted avg       0.84      0.81      0.80      1763
+
+  Fold 2/2  Split   Days  No-stress   Stress  Stress%
+  -------------------------------------------------------
+           train      1     46,081   42,243    47.8%
+           test       1     92,162   49,351    34.9%
+
+  Class weights → no-stress: 1.92  stress: 1.05
+  Epoch 01 | tr_loss=0.4485 tr_acc=0.816 tr_f1=0.919
+  Epoch 05 | tr_loss=0.1254 tr_acc=0.958 tr_f1=0.955
+  Epoch 10 | tr_loss=0.1025 tr_acc=0.974 tr_f1=0.964
+  Epoch 15 | tr_loss=0.0688 tr_acc=0.968 tr_f1=0.971
+  Epoch 20 | tr_loss=0.0561 tr_acc=0.985 tr_f1=0.991
+  Epoch 25 | tr_loss=0.0214 tr_acc=0.997 tr_f1=0.998
+  Epoch 30 | tr_loss=0.0246 tr_acc=0.995 tr_f1=0.997
+  Fold 2 test day=2020-07-17 | Acc=0.706 PR-AUC=0.613
+  CM: [[1512, 331], [501, 483]]
+              precision    recall  f1-score   support
+
+   no-stress       0.75      0.82      0.78      1843
+      stress       0.59      0.49      0.54       984
+
+    accuracy                           0.71      2827
+   macro avg       0.67      0.66      0.66      2827
+weighted avg       0.70      0.71      0.70      2827
+
+=== Nurse 8B LODO Summary (2 folds) ===
+  PR-AUC:       0.750 ± 0.137
+  F1 no-stress: 0.811 ± 0.027
+  F1 stress:    0.647 ± 0.109
+  F1 macro:     0.729 ± 0.068
+  Fold results → results/nurse_8B_lodo_folds.csv
+
+============================================================
+  Processing Nurse 94
+============================================================
+  Rows: 586,096  |  label dist: {0: 366153, 1: 219943}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-05-09       0.0%  ✗ dropped (too little stress)
+  2020-05-10     100.0%  ✗ dropped (too much stress)
+  2020-05-11     100.0%  ✗ dropped (too much stress)
+  2020-06-23     100.0%  ✗ dropped (too much stress)
+  2020-06-25      41.4%  ✓ kept
+  2020-06-29       0.0%  ✗ dropped (too little stress)
+  2020-07-01      43.5%  ✓ kept
+  2020-07-02       9.8%  ✗ dropped (too little stress)
+  2020-07-07     100.0%  ✗ dropped (too much stress)
+  → 2 / 9 days kept (ratio window 20–80%)
+  Running LODO over 2 balanced days...
+  Fold 1/2  Split   Days  No-stress   Stress  Stress%
+  -------------------------------------------------------
+           train      1     67,202   51,841    43.5%
+           test       1     53,185   37,537    41.4%
+
+  Class weights → no-stress: 1.77  stress: 1.15
+  Epoch 01 | tr_loss=0.3516 tr_acc=0.798 tr_f1=0.964
+  Epoch 05 | tr_loss=0.0428 tr_acc=0.992 tr_f1=0.997
+  Epoch 10 | tr_loss=0.0078 tr_acc=0.999 tr_f1=0.999
+  Epoch 15 | tr_loss=0.0001 tr_acc=1.000 tr_f1=1.000
+  Epoch 20 | tr_loss=0.0061 tr_acc=1.000 tr_f1=1.000
+  Epoch 25 | tr_loss=0.0072 tr_acc=0.999 tr_f1=0.998
+  Epoch 30 | tr_loss=0.0067 tr_acc=0.999 tr_f1=1.000
+  Fold 1 test day=2020-06-25 | Acc=0.409 PR-AUC=0.277
+  CM: [[599, 463], [608, 141]]
+              precision    recall  f1-score   support
+
+   no-stress       0.50      0.56      0.53      1062
+      stress       0.23      0.19      0.21       749
+
+    accuracy                           0.41      1811
+   macro avg       0.36      0.38      0.37      1811
+weighted avg       0.39      0.41      0.40      1811
+
+  Fold 2/2  Split   Days  No-stress   Stress  Stress%
+  -------------------------------------------------------
+           train      1     53,185   37,537    41.4%
+           test       1     67,202   51,841    43.5%
+
+  Class weights → no-stress: 1.71  stress: 1.21
+  Epoch 01 | tr_loss=0.3236 tr_acc=0.898 tr_f1=0.999
+  Epoch 05 | tr_loss=0.0101 tr_acc=0.998 tr_f1=0.998
+  Epoch 10 | tr_loss=0.0037 tr_acc=0.999 tr_f1=0.999
+  Epoch 15 | tr_loss=0.0040 tr_acc=0.999 tr_f1=0.998
+  Epoch 20 | tr_loss=0.0003 tr_acc=1.000 tr_f1=1.000
+  Epoch 25 | tr_loss=0.0001 tr_acc=1.000 tr_f1=1.000
+  Epoch 30 | tr_loss=0.0001 tr_acc=1.000 tr_f1=1.000
+  Fold 2 test day=2020-07-01 | Acc=0.499 PR-AUC=0.260
+  CM: [[1186, 156], [1035, 0]]
+              precision    recall  f1-score   support
+
+   no-stress       0.53      0.88      0.67      1342
+      stress       0.00      0.00      0.00      1035
+
+    accuracy                           0.50      2377
+   macro avg       0.27      0.44      0.33      2377
+weighted avg       0.30      0.50      0.38      2377
+
+=== Nurse 94 LODO Summary (2 folds) ===
+  PR-AUC:       0.269 ± 0.008
+  F1 no-stress: 0.597 ± 0.069
+  F1 stress:    0.104 ± 0.104
+  F1 macro:     0.351 ± 0.018
+  Fold results → results/nurse_94_lodo_folds.csv
+
+============================================================
+  Processing Nurse BG
+============================================================
+  Rows: 608,655  |  label dist: {1: 587533, 0: 21122}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-10-29     100.0%  ✗ dropped (too much stress)
+  2020-11-05     100.0%  ✗ dropped (too much stress)
+  2020-11-06     100.0%  ✗ dropped (too much stress)
+  2020-12-03      81.4%  ✗ dropped (too much stress)
+  2020-12-04     100.0%  ✗ dropped (too much stress)
+  2020-12-06     100.0%  ✗ dropped (too much stress)
+  2020-12-10     100.0%  ✗ dropped (too much stress)
+  2020-12-12     100.0%  ✗ dropped (too much stress)
+  → 0 / 8 days kept (ratio window 20–80%)
+  [Nurse BG] Fewer than 2 balanced days — skipping.
+  [Nurse CE] Skipped.
+
+============================================================
+  Processing Nurse DF
+============================================================
+  Rows: 908,168  |  label dist: {1: 842886, 0: 65282}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-07-21      22.2%  ✓ kept
+  2020-07-22     100.0%  ✗ dropped (too much stress)
+  2020-07-23       0.0%  ✗ dropped (too little stress)
+  2020-07-28     100.0%  ✗ dropped (too much stress)
+  2020-07-29     100.0%  ✗ dropped (too much stress)
+  2020-07-30     100.0%  ✗ dropped (too much stress)
+  2020-08-06     100.0%  ✗ dropped (too much stress)
+  → 1 / 7 days kept (ratio window 20–80%)
+  [Nurse DF] Fewer than 2 balanced days — skipping.
+
+============================================================
+  Processing Nurse E4
+============================================================
+  Rows: 1,487,871  |  label dist: {1: 1206681, 0: 281190}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-04-18     100.0%  ✗ dropped (too much stress)
+  2020-04-19      87.8%  ✗ dropped (too much stress)
+  2020-04-20     100.0%  ✗ dropped (too much stress)
+  2020-06-24     100.0%  ✗ dropped (too much stress)
+  2020-06-25     100.0%  ✗ dropped (too much stress)
+  2020-06-29      78.8%  ✓ kept
+  2020-06-30     100.0%  ✗ dropped (too much stress)
+  2020-07-01      93.3%  ✗ dropped (too much stress)
+  2020-07-02       0.0%  ✗ dropped (too little stress)
+  2020-07-03      40.2%  ✓ kept
+  2020-07-06     100.0%  ✗ dropped (too much stress)
+  → 2 / 11 days kept (ratio window 20–80%)
+  Running LODO over 2 balanced days...
+  Fold 1/2  Split   Days  No-stress   Stress  Stress%
+  -------------------------------------------------------
+           train      1    111,361   74,882    40.2%
+           test       1     93,025  345,602    78.8%
+
+  Class weights → no-stress: 1.67  stress: 1.24
+  Epoch 01 | tr_loss=0.3247 tr_acc=0.865 tr_f1=0.927
+  Epoch 05 | tr_loss=0.1705 tr_acc=0.953 tr_f1=0.950
+  Epoch 10 | tr_loss=0.1914 tr_acc=0.955 tr_f1=0.945
+  Epoch 15 | tr_loss=0.1543 tr_acc=0.961 tr_f1=0.951
+  Epoch 20 | tr_loss=0.0900 tr_acc=0.967 tr_f1=0.968
+  Epoch 25 | tr_loss=0.1010 tr_acc=0.944 tr_f1=0.942
+  Epoch 30 | tr_loss=0.0934 tr_acc=0.944 tr_f1=0.948
+  Fold 1 test day=2020-06-29 | Acc=0.735 PR-AUC=0.922
+  CM: [[1669, 189], [2137, 4774]]
+              precision    recall  f1-score   support
+
+   no-stress       0.44      0.90      0.59      1858
+      stress       0.96      0.69      0.80      6911
+
+    accuracy                           0.73      8769
+   macro avg       0.70      0.79      0.70      8769
+weighted avg       0.85      0.73      0.76      8769
+
+  Fold 2/2  Split   Days  No-stress   Stress  Stress%
+  -------------------------------------------------------
+           train      1     93,025  345,602    78.8%
+           test       1    111,361   74,882    40.2%
+
+  Class weights → no-stress: 4.72  stress: 0.63
+  Epoch 01 | tr_loss=0.0783 tr_acc=0.927 tr_f1=1.000
+  Epoch 05 | tr_loss=0.0830 tr_acc=0.916 tr_f1=0.333
+  Epoch 10 | tr_loss=0.0062 tr_acc=0.999 tr_f1=0.999
+  Epoch 15 | tr_loss=0.0072 tr_acc=0.999 tr_f1=0.999
+  Epoch 20 | tr_loss=0.0081 tr_acc=0.999 tr_f1=1.000
+  Epoch 25 | tr_loss=0.0081 tr_acc=0.999 tr_f1=1.000
+  Early stopping at epoch 25.
+  Fold 2 test day=2020-07-03 | Acc=0.402 PR-AUC=0.242
+  CM: [[0, 2226], [0, 1495]]
+              precision    recall  f1-score   support
+
+   no-stress       0.00      0.00      0.00      2226
+      stress       0.40      1.00      0.57      1495
+
+    accuracy                           0.40      3721
+   macro avg       0.20      0.50      0.29      3721
+weighted avg       0.16      0.40      0.23      3721
+
+=== Nurse E4 LODO Summary (2 folds) ===
+  PR-AUC:       0.582 ± 0.340
+  F1 no-stress: 0.295 ± 0.295
+  F1 stress:    0.689 ± 0.115
+  F1 macro:     0.492 ± 0.205
+  Fold results → results/nurse_E4_lodo_folds.csv
+  [Nurse EG] Skipped.
+
+============================================================
+  Processing Nurse F5
+============================================================
+  Rows: 535,706  |  label dist: {1: 504985, 0: 30721}
+  DATE          STRESS%  STATUS
+  -----------------------------------
+  2020-07-08     100.0%  ✗ dropped (too much stress)
+  2020-07-10     100.0%  ✗ dropped (too much stress)
+  2020-07-13     100.0%  ✗ dropped (too much stress)
+  2020-07-15     100.0%  ✗ dropped (too much stress)
+  2020-07-16      23.8%  ✓ kept
+  2020-07-17     100.0%  ✗ dropped (too much stress)
+  2020-07-20     100.0%  ✗ dropped (too much stress)
+  2020-07-21     100.0%  ✗ dropped (too much stress)
+  2020-07-22     100.0%  ✗ dropped (too much stress)
+  2020-07-23     100.0%  ✗ dropped (too much stress)
+  → 1 / 10 days kept (ratio window 20–80%)
+  [Nurse F5] Fewer than 2 balanced days — skipping.
+
+============================================================
+  AGGREGATE RESULTS ACROSS NURSES
+============================================================
+nurse_id  accuracy   pr_auc  precision_nostress  recall_nostress  f1_nostress  precision_stress  recall_stress  f1_stress  precision_macro  recall_macro  f1_macro
+      83  0.217122 0.297628            0.317912         0.397477     0.297264          0.176243       0.111969   0.088642         0.247077      0.254723  0.192953
+      8B  0.755570 0.750064            0.746284         0.892305     0.811258          0.767428       0.561122   0.646568         0.756856      0.726714  0.728913
+      94  0.453781 0.268810            0.515133         0.723893     0.596859          0.116722       0.094126   0.104213         0.315927      0.409009  0.350536
+      E4  0.568261 0.582008            0.219259         0.449139     0.294668          0.681846       0.845391   0.688673         0.450553      0.647265  0.491671
+
+  Mean ± Std:
+    accuracy                 : 0.499 ± 0.225
+    pr_auc                   : 0.475 ± 0.232
+    precision_nostress       : 0.450 ± 0.233
+    recall_nostress          : 0.616 ± 0.234
+    f1_nostress              : 0.500 ± 0.251
+    precision_stress         : 0.436 ± 0.336
+    recall_stress            : 0.403 ± 0.366
+    f1_stress                : 0.382 ± 0.330
+    precision_macro          : 0.443 ± 0.226
+    recall_macro             : 0.509 ± 0.217
+    f1_macro                 : 0.441 ± 0.227
+
+  Aggregate Permutation Feature Importance (mean F1 drop across nurses):
+    TEMP           : +0.0784 ± 0.0588
+    acc_mag        : +0.0006 ± 0.0084
+    HR             : -0.0041 ± 0.0130
+    EDA            : -0.0205 ± 0.0639
+    time_progress  : -0.0250 ± 0.0908
+
+  Results saved to : results/nurse_results_summary.csv
+  Feature importance: results/feature_importance.csv
