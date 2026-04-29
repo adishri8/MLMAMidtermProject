@@ -1,3 +1,9 @@
+"""Compute SHAP feature importance for the per-nurse RF/DT folds.
+
+The fold generation and window construction come from the shared per-nurse
+pipeline; this script adds SHAP scoring and aggregation on top.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -25,6 +31,7 @@ from RF_idealized_model_per_nurse import (
 
 @dataclass
 class FoldData:
+    """Store the data needed to fit and explain one fold."""
     pipeline: str
     nurse_id: str
     fold_id: int
@@ -39,6 +46,7 @@ class FoldData:
 
 
 def build_window_feature_names() -> list[str]:
+    """Return the exact feature order produced by the sliding-window builder."""
     names: list[str] = []
     stat_order = ["mean", "std", "min", "max", "last", "slope"]
     for stat in stat_order:
@@ -49,6 +57,7 @@ def build_window_feature_names() -> list[str]:
 
 
 def fit_model(model_name: str, X_train: np.ndarray, y_train: np.ndarray):
+    """Train the requested tree-based model for one fold."""
     if model_name == "decision_tree":
         model = DecisionTreeClassifier(
             random_state=42,
@@ -77,7 +86,9 @@ def compute_shap_abs_mean(
     sample_size: int,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    # Local import to allow script dry-runs even if shap is not installed.
+    """Compute mean absolute SHAP values for a sample of evaluation windows."""
+
+    # Import SHAP lazily so the file still loads when the package is unavailable.
     try:
         import shap  # type: ignore
     except ImportError as exc:
@@ -142,6 +153,7 @@ def collect_pipeline_folds(
     max_folds_per_nurse: int | None,
     model_names: Iterable[str],
 ) -> list[FoldData]:
+    """Build all valid folds for one pipeline configuration."""
     fold_data: list[FoldData] = []
 
     for csv_path in csv_files:
@@ -150,6 +162,7 @@ def collect_pipeline_folds(
             continue
 
         df = load_nurse_csv(csv_path)
+        # Only keep nurses with enough distinct days for day-held-out validation.
         candidate_days = sorted(df["day"].unique().tolist())
         if len(candidate_days) < 2:
             continue
@@ -157,6 +170,7 @@ def collect_pipeline_folds(
         means, stds = compute_nurse_normalization(df)
         df_norm = apply_normalization(df, means, stds)
 
+        # Build one set of sliding windows per day so the folds stay day-grouped.
         windows_by_day: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         for day, g in df_norm.groupby("day"):
             Xw, yw = build_windows_for_day(g, window_seconds, stride_seconds)
@@ -233,6 +247,7 @@ def collect_pipeline_folds(
 
 
 def summarize_feature_importance(per_feature_rows: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate per-fold SHAP and tree importances with test-window weighting."""
     grouped = (
         per_feature_rows.groupby(["pipeline", "model", "feature"], as_index=False)
         .agg(
@@ -251,6 +266,7 @@ def summarize_feature_importance(per_feature_rows: pd.DataFrame) -> pd.DataFrame
 
 
 def main() -> None:
+    """Run the SHAP feature-importance workflow end to end."""
     parser = argparse.ArgumentParser(
         description="Compute SHAP feature importance for RF_idealized_model_per_nurse and RF_standard_model_per_nurse folds."
     )
@@ -283,6 +299,7 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
+    # Build both pipelines from the same nurse CSV inputs.
     csv_files = sorted(args.data_dir.glob("processed_nurse_*.csv"))
     if not csv_files:
         raise FileNotFoundError(f"No nurse CSV files found in {args.data_dir}")
@@ -293,6 +310,7 @@ def main() -> None:
 
     all_folds: list[FoldData] = []
 
+    # Idealized pipeline keeps the class-ratio filter on.
     all_folds.extend(
         collect_pipeline_folds(
             pipeline_name="RF_idealized_model_per_nurse",
@@ -318,6 +336,7 @@ def main() -> None:
         )
     )
 
+    # Legacy pipeline reuses the same folds but skips the class-ratio filter.
     all_folds.extend(
         collect_pipeline_folds(
             pipeline_name="RF_standard_model_per_nurse",
@@ -346,6 +365,7 @@ def main() -> None:
     if not all_folds:
         raise RuntimeError("No valid folds found for either pipeline.")
 
+    # Save the exact folds before fitting SHAP so the results are reproducible.
     fold_summary_rows = [
         {
             "pipeline": f.pipeline,
@@ -366,6 +386,7 @@ def main() -> None:
         print(f"Wrote: {out_dir / 'RF_idealized_model_per_nurse_shap_fold_manifest.csv'}")
         return
 
+    # Fit each fold model and score the held-out windows.
     rng = np.random.default_rng(args.random_state)
     feature_names = build_window_feature_names()
 
@@ -409,6 +430,7 @@ def main() -> None:
     per_feature_path = out_dir / "RF_idealized_model_per_nurse_shap_per_fold_feature_importance.csv"
     per_feature_df.to_csv(per_feature_path, index=False)
 
+    # Write both the weighted summary and a top-10 ranking for quick inspection.
     summary_df = summarize_feature_importance(per_feature_df)
     summary_path = out_dir / "RF_idealized_model_per_nurse_shap_feature_importance_summary.csv"
     summary_df.to_csv(summary_path, index=False)

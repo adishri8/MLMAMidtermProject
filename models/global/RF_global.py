@@ -1,3 +1,9 @@
+"""Global sliding-window random forest baseline.
+
+The pipeline normalizes across all nurses, builds day-level sliding windows,
+and evaluates one nurse-day group at a time.
+"""
+
 from __future__ import annotations
 
 import json
@@ -52,7 +58,6 @@ def build_windows(
         # Predict stress at the current endpoint from recent history.
         y_windows.append(int(y[end - 1]))
         end_indices.append(end - 1)
-
     return np.asarray(X_windows), np.asarray(y_windows), np.asarray(end_indices)
 
 
@@ -144,7 +149,9 @@ def find_best_threshold(proba: np.ndarray, y_true: np.ndarray) -> tuple[float, f
 
 
 def main() -> None:
-    # Configuration
+    """Run the global leave-one-nurse-day-out random-forest experiment."""
+
+    # Configuration: keep the windowing and validation setup centralized here.
     data_dir = Path("data/Eric")
     window_seconds = 30
     window_steps_fixed = None

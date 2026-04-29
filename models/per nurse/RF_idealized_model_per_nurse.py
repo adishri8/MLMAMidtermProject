@@ -1,3 +1,9 @@
+"""Per-nurse day-grouped RF/DT training helpers and the idealized pipeline.
+
+The helper functions in this file are reused by the legacy per-nurse script and
+the SHAP analysis so the sliding-window logic stays in one place.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -17,10 +23,12 @@ RAW_FEATURES = ["acc_mag", "EDA", "HR", "TEMP"]
 
 
 def nurse_id_from_path(path: Path) -> str:
+    """Convert a processed nurse filename into its short nurse ID."""
     return path.stem.replace("processed_nurse_", "")
 
 
 def load_nurse_csv(csv_path: Path) -> pd.DataFrame:
+    """Load a nurse CSV and add the day and label columns used downstream."""
     df = pd.read_csv(csv_path)
     required = {"datetime", "time", "acc_mag", "EDA", "HR", "TEMP", "label"}
     missing = required - set(df.columns)
@@ -38,6 +46,7 @@ def load_nurse_csv(csv_path: Path) -> pd.DataFrame:
 
 
 def infer_step_seconds(time_values: np.ndarray) -> float:
+    """Infer the sample spacing from the time column."""
     if len(time_values) < 2:
         return 1.0
     diffs = np.diff(time_values)
@@ -48,12 +57,14 @@ def infer_step_seconds(time_values: np.ndarray) -> float:
 
 
 def compute_nurse_normalization(df_source: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """Compute per-nurse z-score statistics before windowing."""
     means = df_source[RAW_FEATURES].mean(axis=0)
     stds = df_source[RAW_FEATURES].std(axis=0, ddof=0).replace(0.0, 1.0).fillna(1.0)
     return means, stds
 
 
 def apply_normalization(df: pd.DataFrame, means: pd.Series, stds: pd.Series) -> pd.DataFrame:
+    """Attach normalized feature columns for every raw sensor channel."""
     df = df.copy()
     for col in RAW_FEATURES:
         df[f"{col}_z"] = (df[col] - float(means[col])) / float(stds[col])
@@ -65,6 +76,7 @@ def build_windows_for_day(
     window_seconds: float,
     stride_seconds: float,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Summarize a single day into rolling windows with simple statistics."""
     feat_cols = [f"{c}_z" for c in RAW_FEATURES]
     X = day_df[feat_cols].to_numpy(dtype=np.float32)
     y = day_df["label_bin"].to_numpy(dtype=np.int8)
@@ -99,6 +111,7 @@ def build_windows_for_day(
 
 
 def generate_day_combos(days: list[str], test_days_count: int) -> list[tuple[str, ...]]:
+    """Enumerate the day combinations that can act as held-out test folds."""
     if test_days_count < 1:
         return []
     if len(days) <= test_days_count:
@@ -114,6 +127,7 @@ def has_min_class_mix(
     min_c0_rate: float,
     min_c1_rate: float,
 ) -> bool:
+    """Reject folds that do not have enough windows or class balance."""
     n = len(y)
     if n < min_total:
         return False
@@ -129,6 +143,7 @@ def has_min_class_mix(
 
 
 def safe_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
+    """Compute metrics without crashing on empty or single-class arrays."""
     if len(y_true) == 0:
         return {
             "accuracy": 0.0,
@@ -168,6 +183,7 @@ def safe_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
 
 
 def compute_per_day_normalized_stats(df_norm: pd.DataFrame, nurse_id: str) -> pd.DataFrame:
+    """Summarize the normalized data day by day for inspection and QA."""
     rows: list[dict[str, Any]] = []
     for day, g in df_norm.groupby("day"):
         row: dict[str, Any] = {
@@ -187,7 +203,9 @@ def compute_per_day_normalized_stats(df_norm: pd.DataFrame, nurse_id: str) -> pd
         rows.append(row)
     return pd.DataFrame(rows).sort_values(["nurse_id", "day"]).reset_index(drop=True)
 
+
 def find_optimal_threshold_balanced_acc(y_true: np.ndarray, y_proba: np.ndarray) -> tuple[float, float]:
+    """Pick the cutoff that maximizes balanced accuracy on the evaluation set."""
     if len(np.unique(y_true)) < 2:
         return 0.5, 0.0
 
@@ -203,7 +221,9 @@ def find_optimal_threshold_balanced_acc(y_true: np.ndarray, y_proba: np.ndarray)
 
     return best_threshold, best_bal_acc
 
+
 def fit_and_predict(model_name: str, X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Train the requested model and return probabilities plus hard labels."""
     if len(np.unique(y_train)) < 2:
         constant = int(y_train[0]) if len(y_train) > 0 else 1
         proba = np.full(shape=(len(X_test),), fill_value=float(constant), dtype=np.float32)
@@ -235,6 +255,7 @@ def fit_and_predict(model_name: str, X_train: np.ndarray, y_train: np.ndarray, X
 
 
 def main() -> None:
+    """Run the idealized per-nurse evaluation end to end."""
     parser = argparse.ArgumentParser(
         description="Train per-nurse per-day DT/RF models with day-grouped validation."
     )
@@ -257,6 +278,7 @@ def main() -> None:
     parser.add_argument("--max-class-ratio-diff", type=float, default=0.15)
     args = parser.parse_args()
 
+    # Load each nurse once, normalize within nurse, then build per-day windows.
     csv_files = sorted(args.data_dir.glob("processed_nurse_*.csv"))
     if not csv_files:
         raise FileNotFoundError(f"No nurse CSV files found in {args.data_dir}")
@@ -269,6 +291,7 @@ def main() -> None:
     day_stats_all: list[pd.DataFrame] = []
     nurse_summary_rows: list[dict[str, Any]] = []
 
+    # The idealized pipeline keeps the stricter class-ratio filter enabled.
     for csv_path in csv_files:
         nurse_id = nurse_id_from_path(csv_path)
         if nurse_id in discard:
@@ -403,6 +426,7 @@ def main() -> None:
     if not metric_rows:
         raise RuntimeError("No valid nurse folds remained after filtering. Relax class-mix thresholds.")
 
+    # Persist fold-level outputs first so the evaluation split is traceable.
     fold_df = pd.DataFrame(fold_rows).sort_values(["nurse_id", "fold_id"]).reset_index(drop=True)
     metrics_df = pd.DataFrame(metric_rows).sort_values(["nurse_id", "fold_id", "model"]).reset_index(drop=True)
     nurse_summary_df = pd.DataFrame(nurse_summary_rows).sort_values("nurse_id").reset_index(drop=True)

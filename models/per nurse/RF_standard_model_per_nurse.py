@@ -1,6 +1,7 @@
-"""
-Legacy per-nurse per-day pipeline matching `RF_idealized_model_per_nurse.py` behavior
-except: no threshold tuning (fixed 0.5) and enforce class-ratio diff filter.
+"""Legacy per-nurse per-day RF/DT pipeline.
+
+This script keeps the older evaluation behavior: fixed 0.5 thresholding and a
+class-ratio filter, while reusing the shared window-building helpers.
 """
 import argparse
 from pathlib import Path
@@ -18,11 +19,14 @@ from RF_idealized_model_per_nurse import (
     has_min_class_mix,
     fit_and_predict,
     safe_metrics,
+    nurse_id_from_path,
 )
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Run the legacy per-nurse RF/DT evaluation with fixed thresholding."
+    )
     parser.add_argument('--data-dir', type=Path, default=Path('data/Aditya'))
     parser.add_argument('--out-dir', type=Path, default=Path('outputs/RF_standard_model_per_nurse'))
     parser.add_argument('--test-days-count', type=int, default=1)
@@ -46,7 +50,7 @@ def main():
     metric_rows = []
 
     for csv_path in csv_files:
-        nurse_id = csv_path.stem.replace('processed_nurse_', '')
+        nurse_id = nurse_id_from_path(csv_path)
         if nurse_id in ('CE', 'EG'):
             continue
 
@@ -72,11 +76,8 @@ def main():
         if not test_day_combos:
             continue
 
-        attempted = 0
-        valid = 0
-
         for fold_idx, test_days in enumerate(test_day_combos, start=1):
-            attempted += 1
+            # Hold out complete days so this legacy script matches the other per-nurse split logic.
             test_set = set(test_days)
             train_days = [d for d in usable_days if d not in test_set]
             if not train_days:
@@ -109,11 +110,9 @@ def main():
             train_pos_rate = float(np.mean(y_train))
             test_pos_rate = float(np.mean(y_test))
 
-            valid += 1
-
             for model_name in ('decision_tree', 'random_forest'):
-                y_proba, y_pred_default = fit_and_predict(model_name, X_train, y_train, X_test)
-                # no tuning: use default 0.5 threshold (fit_and_predict returns pred at 0.5)
+                # Reuse the shared trainer but keep the historical 0.5 cutoff.
+                _, y_pred_default = fit_and_predict(model_name, X_train, y_train, X_test)
                 m = safe_metrics(y_test, y_pred_default)
                 m.update(
                     {
@@ -130,7 +129,7 @@ def main():
                 )
                 metric_rows.append(m)
 
-        # (optional) could write nurse-level summary
+            # This script intentionally writes only the combined fold table.
 
     if metric_rows:
         out_df = pd.DataFrame(metric_rows)

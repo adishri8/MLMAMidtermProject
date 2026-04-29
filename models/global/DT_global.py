@@ -58,6 +58,7 @@ def set_binary_target(df: pd.DataFrame, positive_class: str) -> pd.DataFrame:
 
 
 def infer_step_seconds(time_values: np.ndarray) -> float:
+    """Estimate the sampling interval from successive timestamps."""
     """Infer sampling interval from time values."""
     if len(time_values) < 2:
         return 1.0
@@ -69,6 +70,7 @@ def infer_step_seconds(time_values: np.ndarray) -> float:
 
 
 def compute_global_normalization(df_source: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """Compute the global mean and standard deviation for each raw sensor."""
     """Compute global z-score normalization parameters across all nurses."""
     means = df_source[RAW_FEATURES].mean(axis=0)
     stds = df_source[RAW_FEATURES].std(axis=0, ddof=0).replace(0.0, 1.0).fillna(1.0)
@@ -76,6 +78,7 @@ def compute_global_normalization(df_source: pd.DataFrame) -> tuple[pd.Series, pd
 
 
 def apply_z_normalization(df: pd.DataFrame, means: pd.Series, stds: pd.Series) -> pd.DataFrame:
+    """Attach z-scored copies of the raw sensor channels."""
     """Apply z-score normalization to raw features."""
     df = df.copy()
     for col in RAW_FEATURES:
@@ -88,6 +91,7 @@ def build_sliding_windows(
     window_seconds: float,
     stride_seconds: float,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Convert one nurse-day dataframe into summary-statistic windows."""
     """
     Build sliding windows from normalized features.
     
@@ -135,7 +139,7 @@ def train_random_forest(
     y_train: np.ndarray,
     X_eval: np.ndarray,
 ) -> tuple[RandomForestClassifier | None, np.ndarray, np.ndarray]:
-    """Train random forest and return probability + hard predictions."""
+    """Train a random forest and return predictions for the eval split."""
     if len(np.unique(y_train)) < 2:
         # Single class - return constant predictions
         constant = int(y_train[0]) if len(y_train) > 0 else 1
@@ -163,7 +167,7 @@ def balance_train_data(
     mode: str,
     random_state: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Apply class balancing on train windows only."""
+    """Optionally undersample the majority class in the training set."""
     if mode == "none":
         return X_train, y_train
 
@@ -185,7 +189,7 @@ def balance_train_data(
 
 
 def find_optimal_threshold_balanced_acc(y_true: np.ndarray, y_proba: np.ndarray) -> tuple[float, float]:
-    """Find threshold maximizing balanced accuracy."""
+    """Find the threshold that maximizes balanced accuracy."""
     if len(y_true) == 0 or len(np.unique(y_true)) < 2:
         return 0.5, 0.0
 
@@ -201,7 +205,7 @@ def find_optimal_threshold_balanced_acc(y_true: np.ndarray, y_proba: np.ndarray)
 
 
 def safe_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
-    """Safely compute metrics even with edge cases."""
+    """Compute common metrics without failing on edge cases."""
     if len(y_true) == 0:
         return {
             "accuracy": 0.0,
@@ -249,6 +253,7 @@ def has_min_class_mix(
 
 
 def collect_global_data(data_dir: Path, discard_nurses: set[str]) -> pd.DataFrame:
+    """Load all nurse CSV files except the discarded IDs."""
     rows: list[pd.DataFrame] = []
     csv_files = sorted(data_dir.glob("processed_nurse_*.csv"))
     if not csv_files:
