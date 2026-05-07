@@ -33,3 +33,9 @@ Each nurse data spans from a minumum of 1 to maximum of 13 days and consists of 
 
 ### Evaluation
 - how we evaluated our data?
+
+
+________________________________________________________________________________________________
+
+### Attribution
+Special thank you to our professor Dr. Laureano Moro Velazquez and our TAs (Yuzhe Wang and Jamie Einslein) for their support throughout the course and this final project!
