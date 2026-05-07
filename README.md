@@ -24,3 +24,12 @@ All participants wore Empatica E4 wearable wristbands for the continuous recordi
     - Label: self-reported stress level (0=no stress, 1=medium, 2=high)
 
 Each nurse data spans from a minumum of 1 to maximum of 13 days and consists of time-stamped observations. 
+
+### Data Preprocessing
+
+### Modeling Methodology 
+#### Global (All Nurses) Approach 
+#### Per-Nurse Approach 
+
+### Evaluation
+- how we evaluated our data?
