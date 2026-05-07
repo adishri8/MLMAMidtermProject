@@ -1,0 +1,50 @@
+{
+  "data_dir": "data/Eric",
+  "window_seconds": 30.0,
+  "window_steps_fixed": null,
+  "stride_fraction": 0.5,
+  "train_ratio": 0.7,
+  "calib_ratio": 0.1,
+  "test_ratio": 0.20000000000000004,
+  "random_state": 42,
+  "val_nurses": [
+    "94",
+    "E4",
+    "6D"
+  ],
+  "train_nurses": [
+    "15",
+    "5C",
+    "6B",
+    "7A",
+    "7E",
+    "83",
+    "8B",
+    "BG",
+    "CE",
+    "DF",
+    "EG",
+    "F5"
+  ],
+  "alpha_branch_a": 1.0,
+  "alpha_branch_b": 0.0,
+  "threshold": 0.875,
+  "calib_objective_score": 0.19506252017180167,
+  "calib_min_recall_0_constraint": 0.25,
+  "calib_min_recall_1_constraint": 0.7,
+  "calib_recall_0": 0.24,
+  "calib_recall_1": 0.5134189031505251,
+  "test_metrics_train_nurses": {
+    "accuracy": 0.6247882552230378,
+    "f1_binary": 0.7681841967556253,
+    "f1_macro": 0.3922342153282198,
+    "balanced_accuracy": 0.44862791815578823
+  },
+  "validation_metrics_heldout_nurses": {
+    "accuracy": 0.5174615095756665,
+    "f1_binary": 0.5454545454545454,
+    "f1_macro": 0.5156244315908182,
+    "balanced_accuracy": 0.5186743816019626
+  },
+  "label_binarization": "label > 0 -> 1, label == 0 -> 0"
+}
